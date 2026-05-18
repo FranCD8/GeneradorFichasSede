@@ -1,0 +1,2192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generador de Fichas — Guadaltel</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --navy:#1b2d5e; --navy2:#142248; --navy3:#0e1a38;
+  --teal:#00a878; --teal2:#008f65; --teal-l:#e6f7f2;
+  --sky:#e8edf8; --sky2:#d4ddf0;
+  --bg:#f0f3f8; --surface:#fff; --s2:#f5f7fb; --border:#d6dce8;
+  --text:#1b2235; --muted:#5a6580;
+  --ok:#00a878; --ok-bg:#e6f7f2; --err:#c0392b; --err-bg:#fdecea;
+  --warn:#d97706; --warn-bg:#fef3c7;
+  --r:10px; --rs:6px;
+  --font:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono','Courier New',monospace;
+  --sh:0 1px 3px rgba(27,45,94,.08),0 4px 16px rgba(27,45,94,.07);
+  --sh-md:0 4px 20px rgba(27,45,94,.14);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;line-height:1.6;display:flex;flex-direction:column}
+
+/* ── HEADER ── */
+header{background:linear-gradient(135deg,var(--navy3) 0%,var(--navy) 100%);color:#fff;padding:0 28px;display:flex;align-items:stretch;gap:0;position:sticky;top:0;z-index:300;box-shadow:0 2px 16px rgba(14,26,56,.45);height:62px}
+.hd-brand{display:flex;align-items:center;gap:13px;padding-right:24px;border-right:1px solid rgba(255,255,255,.12);margin-right:0}
+.hd-logo{width:36px;height:36px;background:var(--teal);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 8px rgba(0,168,120,.4)}
+.hd-logo svg{width:20px;height:20px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.hd-name{display:flex;flex-direction:column;gap:1px}
+.hd-name strong{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);line-height:1}
+.hd-name span{font-size:13.5px;font-weight:600;letter-spacing:-.01em;color:#fff;line-height:1.2}
+header .sp{flex:1}
+
+/* ── MODE SWITCHER (in header) ── */
+.mode-switcher{display:flex;align-items:center;gap:3px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:4px;margin:0 20px}
+.mode-btn{display:flex;align-items:center;gap:6px;padding:5px 13px;border-radius:5px;border:none;background:transparent;color:rgba(255,255,255,.6);font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
+.mode-btn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.mode-btn.active{background:rgba(255,255,255,.15);color:#fff}
+.mode-btn.active.cfg{background:var(--teal);color:#fff}
+
+#hcount{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:4px 12px;font-size:11px;color:rgba(255,255,255,.7);font-family:var(--mono);align-self:center}
+.hd-menu-btn{display:none;align-items:center;justify-content:center;width:36px;height:36px;margin-left:8px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:7px;cursor:pointer;color:#fff;flex-shrink:0;transition:background .15s}
+.hd-menu-btn:hover{background:rgba(255,255,255,.2)}
+.hd-menu-btn svg{width:18px;height:18px;flex-shrink:0;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── CLIENT BAR (below header when config loaded) ── */
+.client-bar{background:var(--navy);border-bottom:2px solid var(--teal);padding:7px 28px;display:none;align-items:center;gap:12px}
+.client-bar.on{display:flex}
+.client-bar .cb-name{font-size:12.5px;font-weight:700;color:#fff;display:flex;align-items:center;gap:8px}
+.client-bar .cb-name svg{width:14px;height:14px;stroke:var(--teal);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.client-bar .cb-meta{font-size:11px;color:rgba(255,255,255,.5);font-family:var(--mono)}
+.client-bar .sp{flex:1}
+.client-bar .cb-change{font-size:11px;color:rgba(255,255,255,.5);cursor:pointer;text-decoration:underline;background:none;border:none;font-family:var(--font);padding:0}
+.client-bar .cb-change:hover{color:#fff}
+
+/* ── LAYOUT ── */
+.layout{display:grid;grid-template-columns:360px 1fr;flex:1}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(14,26,56,.5);z-index:149}
+.sidebar-overlay.on{display:block}
+
+/* ── LEFT ── */
+.left{background:var(--surface);border-right:1px solid var(--border);padding:22px 18px;display:flex;flex-direction:column;gap:18px;position:sticky;top:62px;height:calc(100vh - 62px);overflow-y:auto}
+.slbl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--navy);margin-bottom:7px;display:flex;align-items:center;gap:6px}
+.slbl::before{content:'';width:12px;height:2px;background:var(--teal);border-radius:1px;flex-shrink:0}
+
+/* Upload zone */
+.upzone{border:2px dashed var(--border);border-radius:var(--r);padding:22px 14px;text-align:center;cursor:pointer;transition:all .2s;background:var(--s2);position:relative}
+.upzone:hover,.upzone.drag{border-color:var(--teal);background:var(--teal-l)}
+.upzone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upicon{width:40px;height:40px;background:var(--teal-l);border-radius:10px;border:1px solid rgba(0,168,120,.2);display:flex;align-items:center;justify-content:center;margin:0 auto 9px}
+.upicon svg{width:20px;height:20px;stroke:var(--teal);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.upzone p{font-size:12px;color:var(--muted)}.upzone strong{color:var(--navy);font-weight:600}
+.upzone .ext{font-size:10px;margin-top:3px;color:#a0acbe;font-family:var(--mono)}
+
+/* Stats */
+.sbar{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.scard{background:linear-gradient(135deg,var(--sky) 0%,var(--surface) 100%);border:1px solid var(--sky2);border-radius:var(--rs);padding:10px 12px;position:relative;overflow:hidden}
+.scard::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--teal)}
+.scard .n{font-size:22px;font-weight:700;font-family:var(--mono);letter-spacing:-.04em;color:var(--navy)}
+.scard .l{font-size:10px;color:var(--muted);margin-top:2px;font-weight:500}
+
+/* Bulk buttons */
+.bbtn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;padding:10px 14px;background:linear-gradient(135deg,var(--teal) 0%,#00c490 100%);color:#fff;border:none;border-radius:var(--rs);font-family:var(--font);font-size:12.5px;font-weight:600;cursor:pointer;transition:all .18s;margin-top:8px;box-shadow:0 2px 10px rgba(0,168,120,.35);letter-spacing:.01em}
+.bbtn:hover{background:linear-gradient(135deg,var(--teal2) 0%,var(--teal) 100%);box-shadow:0 4px 14px rgba(0,168,120,.45);transform:translateY(-1px)}
+.bbtn:disabled{background:#a8c8bc;cursor:not-allowed;box-shadow:none;transform:none}
+.bbtn svg{width:14px;height:14px;stroke:#fff;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.bbtn-sel{background:linear-gradient(135deg,var(--navy) 0%,#2a4080 100%)!important;box-shadow:0 2px 10px rgba(27,45,94,.35)!important;margin-top:6px!important}
+.bbtn-sel:hover{background:linear-gradient(135deg,var(--navy2) 0%,var(--navy) 100%)!important}
+
+/* Progress */
+.pgwrap{display:none;margin-top:9px}.pgwrap.on{display:block}
+.pglbl{font-size:10.5px;color:var(--muted);margin-bottom:5px;display:flex;justify-content:space-between;font-weight:500}
+.pgbar{height:5px;background:var(--sky2);border-radius:3px;overflow:hidden}
+.pgfill{height:100%;background:linear-gradient(90deg,var(--teal),#00d4a0);border-radius:3px;transition:width .2s;width:0%}
+
+/* Quick select */
+.qsel{display:flex;align-items:center;gap:5px;margin-top:7px;margin-bottom:2px}
+.qsel-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--s2);color:var(--muted);font-family:var(--font);font-size:10.5px;font-weight:600;cursor:pointer;transition:all .13s;white-space:nowrap}
+.qsel-btn:hover{background:var(--sky);border-color:var(--sky2);color:var(--navy)}
+.qsel-btn svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.qsel-info{margin-left:auto;font-size:10.5px;font-weight:600;color:var(--navy);font-family:var(--mono);white-space:nowrap}
+
+/* Search */
+.swrap{position:relative}
+.swrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;stroke:var(--muted);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.sinput{width:100%;padding:8px 10px 8px 32px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--font);font-size:12.5px;background:var(--s2);color:var(--text);outline:none;transition:all .15s}
+.sinput:focus{border-color:var(--teal);background:#fff;box-shadow:0 0 0 3px rgba(0,168,120,.1)}
+.sinput::placeholder{color:#b0bad0}
+
+/* Proc list with checkboxes */
+.plist{flex:1;overflow-y:auto;margin:0 -3px}
+.pitem{display:flex;align-items:center;gap:8px;padding:6px 7px;border-radius:var(--rs);cursor:pointer;transition:all .12s;margin:2px 0;border:1px solid transparent;position:relative}
+.pitem:hover{background:var(--sky);border-color:var(--sky2)}
+.pitem.sel{background:var(--teal-l);border-color:rgba(0,168,120,.25)}
+.pchk{width:16px;height:16px;flex-shrink:0;border:2px solid var(--border);border-radius:4px;background:var(--surface);display:flex;align-items:center;justify-content:center;transition:all .13s;cursor:pointer}
+.pchk svg{width:10px;height:10px;stroke:#fff;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;opacity:0;transition:opacity .12s}
+.pitem.checked .pchk{background:var(--teal);border-color:var(--teal)}
+.pitem.checked .pchk svg{opacity:1}
+.pcode{font-family:var(--mono);font-size:9.5px;font-weight:700;background:var(--navy);color:#fff;padding:2px 6px;border-radius:4px;flex-shrink:0;letter-spacing:.06em}
+.pitem.sel .pcode{background:var(--teal)}
+.pitem.checked .pcode{background:var(--navy2)}
+/* Fix 9: edited dot indicator */
+.pitem.edited .pnm::after{
+  content:''; display:inline-block;
+  width:6px; height:6px; border-radius:50%;
+  background:var(--accent,#2b5be0); margin-left:6px; vertical-align:middle;
+  background: linear-gradient(135deg,var(--teal),#00c490);
+  box-shadow:0 0 0 2px rgba(0,168,120,.2);
+  flex-shrink:0;
+}
+.pnm{font-size:12px;line-height:1.3;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── RIGHT ── */
+.right{padding:26px 28px;overflow-y:auto}
+
+/* ── EMPTY / ONBOARDING ── */
+.empty{display:flex;align-items:flex-start;justify-content:center;min-height:calc(100vh - 130px);padding:32px 0}
+.onboarding{width:100%;max-width:640px}
+.onboarding-title{display:flex;align-items:center;gap:16px;margin-bottom:32px;padding-bottom:24px;border-bottom:2px solid var(--sky2)}
+.onboarding-logo{width:52px;height:52px;flex-shrink:0;background:linear-gradient(135deg,var(--navy) 0%,#2a4080 100%);border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(27,45,94,.28)}
+.onboarding-logo svg{width:26px;height:26px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.onboarding-title h2{font-size:20px;font-weight:700;color:var(--navy);letter-spacing:-.02em;line-height:1.2}
+.onboarding-title p{font-size:13px;color:var(--muted);margin-top:4px}
+.onboarding-steps{display:flex;flex-direction:column;gap:0}
+.ob-step{display:grid;grid-template-columns:32px 64px 24px 1fr;align-items:start;gap:0 16px;padding-bottom:28px;position:relative}
+.ob-step:last-child{padding-bottom:0}
+.ob-step-num{grid-column:1;grid-row:1;width:26px;height:26px;background:var(--navy);color:#fff;border-radius:50%;font-size:12px;font-weight:700;font-family:var(--mono);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:18px;box-shadow:0 2px 8px rgba(27,45,94,.25);position:relative;z-index:1}
+.ob-step:not(:last-child) .ob-step-num::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);width:2px;height:calc(100% + 44px);background:linear-gradient(to bottom,var(--navy),var(--sky2));z-index:0}
+.ob-icon-wrap{grid-column:2;grid-row:1;width:64px;height:64px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ob-icon-wrap svg{width:28px;height:28px;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ob-icon-blue{background:linear-gradient(135deg,var(--sky) 0%,var(--sky2) 100%);border:1.5px solid var(--sky2);box-shadow:0 4px 16px rgba(27,45,94,.12)}
+.ob-icon-blue svg{stroke:var(--navy)}
+.ob-icon-teal{background:linear-gradient(135deg,var(--teal-l) 0%,#c8eee4 100%);border:1.5px solid rgba(0,168,120,.2);box-shadow:0 4px 16px rgba(0,168,120,.14)}
+.ob-icon-teal svg{stroke:var(--teal)}
+.ob-icon-green{background:linear-gradient(135deg,#e8f8f2 0%,#d0f2e6 100%);border:1.5px solid rgba(0,168,120,.25);box-shadow:0 4px 16px rgba(0,168,120,.16)}
+.ob-icon-green svg{stroke:var(--ok)}
+.ob-connector{grid-column:3;grid-row:1;display:flex;align-items:center;justify-content:center;height:64px}
+.ob-connector::after{content:'›';color:var(--sky2);font-size:22px;font-weight:300;line-height:1}
+.ob-content{grid-column:4;grid-row:1;padding-top:8px;padding-bottom:20px}
+.ob-step:not(:last-child) .ob-content{border-bottom:1px dashed var(--sky2);margin-bottom:4px}
+.ob-content h3{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:6px;letter-spacing:-.01em}
+.ob-content p{font-size:13px;color:var(--muted);line-height:1.65}
+.ob-content strong{color:var(--text);font-weight:600}
+.ob-tip{display:inline-flex;align-items:center;gap:5px;margin-top:10px;padding:5px 10px;background:var(--sky);border:1px solid var(--sky2);border-radius:6px;font-size:11.5px;color:var(--navy);font-weight:500}
+.ob-tip svg{width:13px;height:13px;stroke:var(--teal);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.ob-upload{position:relative;margin-top:28px;border:2px dashed var(--sky2);border-radius:14px;padding:28px 24px;text-align:center;cursor:pointer;transition:all .2s;background:linear-gradient(135deg,var(--sky) 0%,#eef2fb 100%);display:flex;flex-direction:column;align-items:center;gap:10px}
+.ob-upload:hover,.ob-upload.drag{border-color:var(--teal);background:linear-gradient(135deg,var(--teal-l) 0%,#d8f5ec 100%);transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,168,120,.15)}
+.ob-upload input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.ob-upload-icon{width:56px;height:56px;background:linear-gradient(135deg,var(--navy) 0%,#2a4080 100%);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(27,45,94,.25);flex-shrink:0}
+.ob-upload-icon svg{width:26px;height:26px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ob-upload-text{display:flex;flex-direction:column;gap:4px}
+.ob-upload-text strong{font-size:14.5px;font-weight:700;color:var(--navy)}
+.ob-upload-text span{font-size:12.5px;color:var(--muted)}
+.ob-upload-exts{font-family:var(--mono);font-size:11px;color:var(--muted);background:rgba(255,255,255,.7);border:1px solid var(--sky2);border-radius:6px;padding:3px 12px}
+
+/* Detail header */
+.dhead{display:flex;align-items:flex-start;gap:13px;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid var(--sky2)}
+.dcode-badge{font-family:var(--mono);font-size:11.5px;font-weight:700;background:linear-gradient(135deg,var(--navy) 0%,#2a4080 100%);color:#fff;padding:5px 11px;border-radius:var(--rs);flex-shrink:0;margin-top:2px;letter-spacing:.05em;box-shadow:0 2px 6px rgba(27,45,94,.3)}
+.dinfo{flex:1;min-width:0}
+.dinfo h2{font-size:17px;font-weight:700;letter-spacing:-.02em;line-height:1.3;color:var(--navy)}
+.dinfo p{font-size:11.5px;color:var(--muted);margin-top:3px;font-weight:500}
+.dacts{display:flex;gap:7px;flex-shrink:0}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border-radius:var(--rs);font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid transparent;transition:all .15s;white-space:nowrap}
+.btn svg{width:13px;height:13px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.btn-p{background:linear-gradient(135deg,var(--navy) 0%,#2a4080 100%);color:#fff;border-color:var(--navy);box-shadow:0 2px 8px rgba(27,45,94,.28)}
+.btn-p:hover{background:linear-gradient(135deg,var(--navy2) 0%,var(--navy) 100%);transform:translateY(-1px)}
+.btn-o{background:var(--surface);color:var(--navy);border-color:var(--border);font-weight:600}
+.btn-o:hover{background:var(--sky);border-color:var(--sky2)}
+.btn-teal{background:linear-gradient(135deg,var(--teal) 0%,#00c490 100%);color:#fff;border-color:var(--teal)}
+.btn-teal:hover{background:linear-gradient(135deg,var(--teal2) 0%,var(--teal) 100%)}
+.btn-danger{background:#fdecea;color:var(--err);border-color:#f5c2bb}
+.btn-danger:hover{background:var(--err);color:#fff}
+
+/* Tabs */
+.tabs{display:flex;gap:0;background:var(--s2);border:1.5px solid var(--border);border-radius:var(--r);padding:4px;margin-bottom:16px}
+.tab{flex:1;padding:7px 10px;border-radius:7px;font-size:12.5px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--muted);font-family:var(--font);transition:all .15s;text-align:center}
+.tab.on{background:#fff;color:var(--navy);font-weight:700;box-shadow:var(--sh)}
+
+/* Field groups */
+.fgrid{display:flex;flex-direction:column;gap:12px}
+.fg{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);overflow:hidden;transition:border-color .15s;box-shadow:var(--sh)}
+.fg:hover{border-color:var(--sky2)}
+.fg.has-err{border-color:#e8a09a;background:#fffafa}
+/* Non-visible (reference) fields — visually subdued */
+.fg.fg-ref{opacity:.85;border-style:dashed}
+.fg.fg-ref .fgh{background:repeating-linear-gradient(135deg,var(--s2) 0px,var(--s2) 8px,#eff1f7 8px,#eff1f7 16px)}
+.fg.fg-ref .fnum{background:#8a9ab8}
+.fg.fg-ref .rtedit{background:#f8f9fc;color:var(--muted)}
+.fgh{display:flex;align-items:center;gap:8px;padding:8px 13px;background:linear-gradient(to right,var(--sky) 0%,var(--s2) 100%);border-bottom:1.5px solid var(--border)}
+.fg.has-err .fgh{background:linear-gradient(to right,#fdecea,var(--s2))}
+.fnum{font-family:var(--mono);font-size:9px;color:#fff;background:var(--navy);padding:1px 6px;border-radius:5px;font-weight:700}
+.fg.has-err .fnum{background:var(--err)}
+.fname{font-size:11.5px;font-weight:600;flex:1;color:var(--text)}
+.fbadge{font-size:9px;padding:2px 7px;border-radius:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.fbadge.ok{background:var(--ok-bg);color:var(--ok)}
+.fbadge.err{background:var(--err-bg);color:var(--err)}
+.fbadge.ref{background:#f0f1f5;color:#7a8299;border:1px solid #d6dce8}
+.fgb{padding:0}
+
+/* Rich text toolbar */
+.rtbar{display:flex;align-items:center;gap:2px;padding:5px 10px;border-bottom:1px solid var(--border);background:var(--s2);flex-wrap:wrap}
+.rtbar-sep{width:1px;height:17px;background:var(--border);margin:0 4px;flex-shrink:0}
+.rtbtn{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:5px;border:1.5px solid transparent;background:transparent;cursor:pointer;font-family:var(--font);font-size:11px;color:var(--muted);transition:all .12s;white-space:nowrap;user-select:none;font-weight:500}
+.rtbtn:hover{background:var(--teal-l);color:var(--teal);border-color:rgba(0,168,120,.3)}
+.rtbtn svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+
+/* Rich text editor */
+.rtedit{min-height:90px;padding:10px 13px;outline:none;font-family:var(--font);font-size:13px;line-height:1.7;color:var(--text);background:var(--s2);cursor:text;transition:background .15s}
+.rtedit:focus{background:#fff;box-shadow:inset 0 0 0 2px rgba(0,168,120,.15)}
+.rtedit:empty::before{content:attr(data-ph);color:#b0bad0;pointer-events:none;font-style:italic}
+.rtedit ul{padding-left:1.5em;list-style:disc;margin:.3em 0}
+.rtedit ol{padding-left:1.5em;list-style:decimal;margin:.3em 0}
+.rtedit li{margin:.1em 0}
+.rtedit ul ul,.rtedit ol ul{list-style:circle;padding-left:1.5em}
+.rtedit ul ol,.rtedit ol ol{list-style:lower-alpha;padding-left:1.5em}
+.rtedit ul ul ul,.rtedit ol ul ul,.rtedit ul ol ul,.rtedit ol ol ul{list-style:none;padding-left:1.5em}
+.rtedit ul ul ol,.rtedit ol ol ol,.rtedit ul ol ol,.rtedit ol ul ol{list-style:none;padding-left:1.5em}
+.rtedit p{margin:.18em 0}
+.rtedit b,.rtedit strong{font-weight:700}
+.rtedit a{color:var(--navy);text-decoration:underline}
+
+/* HTML preview */
+.ptoolbar{display:flex;align-items:center;gap:9px;padding:9px 15px;background:#0e1a38;border-radius:var(--r) var(--r) 0 0;border:1px solid #1e3060;border-bottom:none}
+.pdots span{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px}
+.pdots .r{background:#ff5f57}.pdots .y{background:#febc2e}.pdots .g{background:#28c840}
+.pfname{font-family:var(--mono);font-size:11px;color:#7a9acc;flex:1;text-align:center}
+.pcode{background:#0f1f45;border:1px solid #1e3060;border-radius:0 0 var(--r) var(--r);padding:16px;overflow-x:auto;max-height:620px;overflow-y:auto}
+.pcode pre{font-family:var(--mono);font-size:11.5px;line-height:1.75;color:#b8cfe8;white-space:pre-wrap;word-break:break-all}
+
+/* ════════════════════════════════
+   CONFIGURATOR PANEL
+   ════════════════════════════════ */
+.cfg-panel{display:none;flex:1;padding:0}
+.cfg-panel.on{display:flex;flex-direction:column}
+
+/* Saved configs list */
+.cfg-list-screen{padding:28px 32px;max-width:860px;margin:0 auto;width:100%}
+.cfg-list-screen h2{font-size:20px;font-weight:700;color:var(--navy);margin-bottom:6px}
+.cfg-list-screen p{font-size:13px;color:var(--muted);margin-bottom:24px}
+
+.cfg-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:24px}
+.cfg-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);padding:16px;transition:all .15s;position:relative;box-shadow:var(--sh);display:flex;flex-direction:column}
+.cfg-card:hover{border-color:var(--teal);box-shadow:0 4px 18px rgba(0,168,120,.14);transform:translateY(-2px)}
+.cfg-card.is-active{border-color:var(--teal);box-shadow:0 4px 18px rgba(0,168,120,.18)}
+.cfg-card.is-active::after{content:'ACTIVA';position:absolute;top:10px;right:10px;font-size:9px;font-weight:700;letter-spacing:.08em;background:var(--teal);color:#fff;padding:2px 7px;border-radius:10px}
+.cfg-card .cc-icon{width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,var(--sky) 0%,var(--sky2) 100%);border:1px solid var(--sky2);display:flex;align-items:center;justify-content:center;margin-bottom:10px;flex-shrink:0}
+.cfg-card .cc-icon svg{width:19px;height:19px;stroke:var(--navy);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.cfg-card h3{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:3px;line-height:1.3}
+.cfg-card .cc-desc{font-size:11px;color:var(--muted);line-height:1.4;flex:1}
+.cfg-card .cc-meta{font-size:10px;color:#a0acbe;font-family:var(--mono);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+.cfg-card .cc-actions{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.cfg-card .cc-actions .btn{font-size:10.5px;padding:5px 9px;flex:1;min-width:0;justify-content:center;white-space:nowrap}
+.cfg-card-new{border-style:dashed;border-color:var(--sky2);background:var(--s2);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:150px;cursor:pointer}
+.cfg-card-new:hover{border-color:var(--teal);background:var(--teal-l);transform:translateY(-2px)}
+.cfg-card-new svg{width:28px;height:28px;stroke:var(--teal);fill:none;stroke-width:1.8;margin-bottom:8px}
+.cfg-card-new h3{color:var(--teal);font-size:13px}
+.cfg-card-new p{font-size:11px;color:var(--muted)}
+
+/* Wizard */
+.cfg-wizard{padding:28px 32px;max-width:760px;margin:0 auto;width:100%}
+.wiz-header{display:flex;align-items:center;gap:12px;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid var(--sky2)}
+.wiz-back{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);cursor:pointer;background:none;border:none;font-family:var(--font);padding:0;transition:color .13s}
+.wiz-back:hover{color:var(--navy)}
+.wiz-back svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.wiz-header h2{font-size:18px;font-weight:700;color:var(--navy);flex:1}
+
+/* Step progress */
+.wiz-steps{display:flex;gap:0;margin-bottom:28px}
+.wiz-step{display:flex;align-items:center;gap:0;flex:1}
+.wiz-step-dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--muted);font-family:var(--mono);flex-shrink:0;transition:all .2s}
+.wiz-step.done .wiz-step-dot{background:var(--teal);border-color:var(--teal);color:#fff}
+.wiz-step.active .wiz-step-dot{background:var(--navy);border-color:var(--navy);color:#fff}
+.wiz-step-label{font-size:10.5px;font-weight:600;color:var(--muted);margin-left:7px;white-space:nowrap}
+.wiz-step.active .wiz-step-label{color:var(--navy)}
+.wiz-step.done .wiz-step-label{color:var(--teal)}
+.wiz-step-line{flex:1;height:2px;background:var(--border);margin:0 8px;transition:background .2s}
+.wiz-step.done .wiz-step-line{background:var(--teal)}
+
+/* Wizard screens */
+.wiz-screen{display:none}
+.wiz-screen.on{display:block}
+.wiz-section{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:16px;box-shadow:var(--sh)}
+.wiz-section h3{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:4px;display:flex;align-items:center;gap:7px}
+.wiz-section h3 svg{width:14px;height:14px;stroke:var(--teal);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.wiz-section p{font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.5}
+
+/* Form elements in wizard */
+.wiz-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);display:block;margin-bottom:5px;margin-top:14px}
+.wiz-label:first-child{margin-top:0}
+.wiz-input{width:100%;padding:8px 11px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--font);font-size:13px;color:var(--text);background:var(--s2);outline:none;transition:all .15s}
+.wiz-input:focus{border-color:var(--teal);background:#fff;box-shadow:0 0 0 3px rgba(0,168,120,.1)}
+.wiz-input::placeholder{color:#b0bad0}
+.wiz-textarea{width:100%;min-height:120px;padding:9px 11px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--mono);font-size:11.5px;color:var(--text);background:var(--s2);outline:none;resize:vertical;transition:all .15s;line-height:1.6}
+.wiz-textarea:focus{border-color:var(--teal);background:#fff}
+.wiz-select{width:100%;padding:8px 11px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--font);font-size:13px;color:var(--text);background:var(--s2);outline:none;cursor:pointer}
+.wiz-select:focus{border-color:var(--teal)}
+.wiz-hint{font-size:11px;color:#a0acbe;margin-top:4px;display:block}
+
+/* Column mapper */
+.col-list{display:flex;flex-direction:column;gap:6px;margin-top:6px;max-height:260px;overflow-y:auto}
+.col-row{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);transition:all .13s}
+.col-row:hover{background:var(--sky);border-color:var(--sky2)}
+.col-row.visible{background:var(--teal-l);border-color:rgba(0,168,120,.25)}
+.col-row .col-chk{width:15px;height:15px;flex-shrink:0;accent-color:var(--teal);cursor:pointer}
+.col-row .col-name{font-size:12px;font-family:var(--mono);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.col-row .col-label{font-size:11px;color:var(--muted)}
+.col-row .drag-handle{cursor:grab;color:var(--border);flex-shrink:0}
+.col-row .drag-handle:hover{color:var(--muted)}
+.col-row.dragging{opacity:.5;border-style:dashed}
+.col-row.drag-over{border-color:var(--teal);background:var(--teal-l)}
+
+/* Block order editor */
+.block-list{display:flex;flex-direction:column;gap:5px;margin-top:6px}
+.block-row{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--s2);border:1.5px solid var(--border);border-radius:var(--rs);cursor:grab;transition:all .13s}
+.block-row:hover{background:var(--sky);border-color:var(--sky2)}
+.block-row.dragging{opacity:.4;border-style:dashed;cursor:grabbing}
+.block-row.drag-over{border-color:var(--teal);background:var(--teal-l)}
+.block-row .brow-num{font-family:var(--mono);font-size:9px;background:var(--navy);color:#fff;padding:1px 5px;border-radius:4px;flex-shrink:0}
+.block-row .brow-name{font-size:12.5px;font-weight:600;flex:1}
+.block-row .brow-col{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.block-row .brow-del{background:none;border:none;cursor:pointer;color:#c0b8b0;padding:2px;border-radius:3px;display:flex;align-items:center;justify-content:center;transition:all .13s}
+.block-row .brow-del:hover{color:var(--err);background:var(--err-bg)}
+.block-row .brow-del svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.drag-handle-icon{width:14px;height:14px;color:var(--border);flex-shrink:0;display:flex;flex-direction:column;justify-content:center;gap:3px}
+.drag-handle-icon span{display:block;height:1.5px;background:currentColor;border-radius:1px}
+.add-block-row{display:flex;gap:6px;margin-top:6px}
+.add-block-row .wiz-input{flex:1}
+
+/* Wizard nav buttons */
+.wiz-nav{display:flex;justify-content:space-between;align-items:center;margin-top:24px;padding-top:20px;border-top:1px solid var(--border)}
+
+/* Alert boxes */
+.alert{display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border-radius:var(--rs);font-size:12.5px;line-height:1.5;margin-bottom:14px}
+.alert svg{width:15px;height:15px;flex-shrink:0;margin-top:1px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.alert-ok{background:var(--ok-bg);border:1px solid rgba(0,168,120,.2);color:#0d5c3f}
+.alert-ok svg{stroke:var(--ok)}
+.alert-warn{background:var(--warn-bg);border:1px solid rgba(217,119,6,.2);color:#92400e}
+.alert-warn svg{stroke:var(--warn)}
+.alert-err{background:var(--err-bg);border:1px solid rgba(192,57,43,.2);color:#7b1d1d}
+.alert-err svg{stroke:var(--err)}
+
+/* Block preview modal */
+.bpmodal-overlay{position:fixed;inset:0;background:rgba(14,26,56,.6);z-index:10001;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.bpmodal-overlay.on{opacity:1;pointer-events:all}
+.bpmodal{background:var(--surface);border-radius:12px;box-shadow:0 20px 60px rgba(14,26,56,.35);width:700px;max-width:96vw;max-height:88vh;display:flex;flex-direction:column;transform:translateY(14px) scale(.98);transition:transform .22s,opacity .22s;border-top:3px solid var(--teal)}
+.bpmodal-overlay.on .bpmodal{transform:translateY(0) scale(1)}
+.bpmodal-head{display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid var(--border);flex-shrink:0;background:linear-gradient(to right,var(--sky),var(--surface))}
+.bpmodal-head h3{font-size:13.5px;font-weight:700;flex:1;color:var(--navy)}
+.bptag{font-family:var(--mono);font-size:9.5px;font-weight:700;background:var(--navy);color:#fff;padding:2px 8px;border-radius:4px;letter-spacing:.06em}
+.bpmodal-close{display:flex;align-items:center;justify-content:center;width:27px;height:27px;border:1px solid var(--border);background:transparent;border-radius:6px;cursor:pointer;color:var(--muted);font-size:15px;line-height:1;transition:all .12s}
+.bpmodal-close:hover{background:var(--err-bg);color:var(--err);border-color:var(--err)}
+.bpmodal-body{overflow-y:auto;flex:1;padding:0}
+.bp-accordion{font-family:var(--font)}
+.bp-acc-btn{width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:linear-gradient(to right,var(--sky) 0%,var(--s2) 100%);border:none;border-bottom:2px solid var(--teal);cursor:default;font-family:inherit;font-size:14.5px;font-weight:700;color:var(--navy);text-align:left;gap:10px}
+.bp-acc-chevron{width:16px;height:16px;stroke:var(--teal);fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.bp-acc-body{padding:20px;font-size:14px;line-height:1.78;color:var(--text);border-bottom:1px solid var(--border);background:#fff}
+.bp-acc-body p{margin:.3em 0}
+.bp-acc-body ul{padding-left:1.5em;list-style:disc;margin:.4em 0}
+.bp-acc-body ol{padding-left:1.5em;list-style:decimal;margin:.4em 0}
+.bp-acc-body ul ul,.bp-acc-body ol ul{list-style:circle;padding-left:1.5em}
+.bp-acc-body ul ul ul,.bp-acc-body ol ul ul{list-style:none;padding-left:1.5em}
+.bp-acc-body li{margin:.2em 0}
+.bp-acc-body a{color:var(--navy);text-decoration:underline;font-weight:500}
+.bp-acc-body b,.bp-acc-body strong{font-weight:700}
+.bp-empty{padding:20px;font-size:13px;color:#aab;font-style:italic;border-bottom:1px solid var(--border);background:var(--s2)}
+.bpmodal-foot{padding:12px 18px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;flex-shrink:0;background:var(--s2)}
+.bptab{padding:7px 16px;border-radius:6px 6px 0 0;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--muted);font-family:var(--font);transition:all .15s}
+.bptab.on{background:var(--surface);color:var(--navy);box-shadow:0 -2px 0 var(--teal) inset}
+.bp-code-toolbar{display:flex;align-items:center;gap:10px;padding:9px 15px;background:#0e1a38;border-bottom:1px solid #1e3060}
+.bp-code-fname{font-family:var(--mono);font-size:11px;color:#7a9acc;flex:1}
+.bp-copy-btn{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:5px;border:1px solid rgba(0,168,120,.4);background:rgba(0,168,120,.15);color:var(--teal);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
+.bp-copy-btn:hover{background:rgba(0,168,120,.28);border-color:var(--teal)}
+.bp-copy-btn svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.bp-code-block{background:#0f1f45;padding:15px 17px;overflow-x:auto;max-height:420px;overflow-y:auto}
+.bp-code-block pre{font-family:var(--mono);font-size:11px;line-height:1.74;color:#b8cfe8;white-space:pre-wrap;word-break:break-all}
+
+/* Link modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(14,26,56,.55);z-index:10000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-overlay.on{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border-radius:12px;box-shadow:var(--sh-md);padding:24px 24px 20px;width:430px;max-width:94vw;transform:translateY(10px);transition:transform .2s;border-top:3px solid var(--navy)}
+.modal-overlay.on .modal{transform:translateY(0)}
+.modal h3{font-size:14px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px;color:var(--navy)}
+.modal h3 svg{width:16px;height:16px;stroke:var(--teal);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.modal label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px;margin-top:14px}
+.modal label:first-of-type{margin-top:0}
+.modal input{width:100%;padding:8px 11px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:var(--font);font-size:13px;color:var(--text);background:var(--s2);outline:none;transition:all .15s}
+.modal input:focus{border-color:var(--teal);background:#fff;box-shadow:0 0 0 3px rgba(0,168,120,.1)}
+.modal-preview{margin-top:12px;padding:9px 11px;background:var(--sky);border:1.5px solid var(--sky2);border-radius:var(--rs);font-size:12px;color:var(--muted);min-height:36px;word-break:break-all}
+.modal-preview a{color:var(--navy);text-decoration:underline;font-weight:600}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;right:20px;background:linear-gradient(135deg,var(--navy) 0%,#2a4080 100%);color:#fff;padding:10px 16px;border-radius:var(--rs);font-size:12.5px;font-weight:500;z-index:9999;transform:translateY(70px);opacity:0;transition:all .32s cubic-bezier(.34,1.56,.64,1);display:flex;align-items:center;gap:8px;max-width:320px;box-shadow:0 6px 24px rgba(27,45,94,.35);border-left:3px solid var(--teal)}
+.toast.on{transform:translateY(0);opacity:1}
+.toast svg{width:14px;height:14px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* Footer */
+.app-footer{background:linear-gradient(135deg,var(--navy3) 0%,var(--navy) 100%);border-top:2px solid var(--teal);color:rgba(255,255,255,.75);font-family:var(--font);font-size:12px;flex-shrink:0}
+.app-footer-inner{display:flex;align-items:center;padding:12px 28px;flex-wrap:wrap;gap:16px}
+.app-footer-brand{display:flex;align-items:center;gap:10px}
+.app-footer-logo{width:28px;height:28px;background:var(--teal);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 6px rgba(0,168,120,.35)}
+.app-footer-logo svg{width:14px;height:14px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.app-footer-name{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--teal);line-height:1}
+.app-footer-product{display:block;font-size:11px;font-weight:500;color:rgba(255,255,255,.6);margin-top:2px;line-height:1}
+.app-footer-divider{width:1px;height:32px;background:rgba(255,255,255,.12);flex-shrink:0}
+.app-footer-audit{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 12px}
+.app-footer-audit svg{width:14px;height:14px;stroke:var(--teal);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.app-footer-audit-label{display:block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--teal);line-height:1}
+.app-footer-audit-name{display:block;font-size:12px;font-weight:600;color:#fff;margin-top:2px;line-height:1}
+.app-footer-copy{margin-left:auto;font-size:11px;color:rgba(255,255,255,.35);white-space:nowrap}
+
+/* Responsive */
+.hd-subtitle{font-size:12px;color:rgba(255,255,255,.55);align-self:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* B9: character counter per block */
+.char-count{font-size:10px;color:#a0acbe;font-family:var(--mono);padding:3px 10px;text-align:right;border-top:1px solid var(--border);background:var(--s2)}
+.char-count.char-warn{color:var(--warn)}
+.char-count.char-err{color:var(--err);font-weight:600}
+
+.hidden{display:none!important}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--sky2);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--navy)}
+
+@media(max-width:1200px){
+  .layout{grid-template-columns:300px 1fr}
+  .cfg-cards{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+}
+@media(max-width:900px){
+  header{padding:0 16px;height:56px}
+  .hd-brand{padding-right:14px;margin-right:10px}
+  .mode-switcher{margin:0 8px}
+  .mode-btn span{display:none}
+  .hd-menu-btn{display:flex}
+  #hcount{font-size:10px;padding:3px 8px}
+  .layout{grid-template-columns:1fr;min-height:calc(100vh - 56px)}
+  .left{position:fixed;top:56px;left:0;width:300px;height:calc(100vh - 56px);z-index:150;transform:translateX(-100%);transition:transform .28s cubic-bezier(.4,0,.2,1);box-shadow:4px 0 24px rgba(14,26,56,.25)}
+  .left.open{transform:translateX(0)}
+  .right{padding:18px 16px}
+  .dhead{flex-wrap:wrap;gap:10px}
+  .dacts{width:100%;justify-content:flex-end}
+  .cfg-list-screen,.cfg-wizard{padding:20px 16px}
+  .cfg-cards{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+  .wiz-step-label{display:none}
+  .wiz-steps{gap:4px}
+}
+@media(max-width:600px){
+  header{padding:0 12px;height:52px}
+  .left{top:52px;height:calc(100vh - 52px);width:88vw}
+  .bpmodal{width:98vw;max-height:92vh}
+  .modal{width:96vw}
+  .tabs{flex-direction:row}
+  .tab{font-size:11px;padding:6px 6px}
+  .rtbar{gap:1px;padding:4px 7px}
+  .rtbtn{font-size:10px;padding:3px 5px}
+  .fgh{flex-wrap:wrap;gap:5px}
+  .cfg-cards{grid-template-columns:1fr}
+  .cfg-list-screen,.cfg-wizard{padding:16px 12px}
+  .add-block-row{flex-direction:column}
+  .wiz-nav{flex-direction:column;gap:10px}
+  .wiz-nav .btn{width:100%;justify-content:center}
+  .dacts{flex-direction:column}
+  .dacts .btn{width:100%;justify-content:center}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ HEADER ══ -->
+<header>
+  <div class="hd-brand">
+    <div class="hd-logo">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+    </div>
+    <div class="hd-name">
+      <strong>Guadaltel</strong>
+      <span>Generador de Fichas</span>
+    </div>
+  </div>
+
+  <!-- Mode switcher -->
+  <div class="mode-switcher">
+    <button class="mode-btn active" id="mb-gen" onclick="setMode('gen')">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <span>Generador</span>
+    </button>
+    <button class="mode-btn cfg" id="mb-cfg" onclick="setMode('cfg')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      <span>Configurador</span>
+    </button>
+  </div>
+
+  <div class="sp"></div>
+  <div id="hcount">Sin datos cargados</div>
+  <button class="hd-menu-btn" id="hd-menu-btn" onclick="toggleSidebar()" aria-label="Abrir panel lateral">
+    <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+</header>
+
+<!-- Active client bar -->
+<div class="client-bar" id="client-bar">
+  <div class="cb-name">
+    <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    <span id="cb-name-txt">—</span>
+  </div>
+  <span class="cb-meta" id="cb-meta-txt"></span>
+  <div class="sp"></div>
+  <button class="cb-change" onclick="setMode('cfg')">Cambiar configuración</button>
+</div>
+
+<!-- ══ GENERATOR MODE ══ -->
+<div id="gen-mode" style="display:flex;flex:1;flex-direction:column">
+  <div class="layout">
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <!-- LEFT -->
+    <div class="left" id="left-panel">
+      <div>
+        <div class="slbl">1. Cargar Excel</div>
+        <div class="upzone" id="upzone">
+          <input type="file" id="finput" accept=".xlsx,.xls,.ods">
+          <div class="upicon">
+            <svg viewBox="0 0 24 24"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+          </div>
+          <p><strong>Arrastra el Excel aqu&iacute;</strong><br>o haz clic para seleccionar</p>
+          <div class="ext">.xlsx &middot; .xls &middot; .ods</div>
+        </div>
+      </div>
+
+      <div id="statsec" class="hidden">
+        <div class="slbl">Resumen</div>
+        <div class="sbar">
+          <div class="scard"><div class="n" id="stotal">0</div><div class="l">Procedimientos</div></div>
+          <div class="scard"><div class="n" id="sready">0</div><div class="l">Con datos</div></div>
+        </div>
+        <button class="bbtn" id="btnall" onclick="downloadAllZip()">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Descargar todos (.zip)
+        </button>
+        <button class="bbtn bbtn-sel hidden" id="btnsel" onclick="downloadSelZip()">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Descargar selecci&oacute;n (<span id="selcount">0</span>)
+        </button>
+        <button class="bbtn" id="btnfull" onclick="downloadFullBundle()" style="background:linear-gradient(135deg,#2b5be0 0%,#1e4cc4 100%);box-shadow:0 2px 10px rgba(43,91,224,.3);margin-top:6px" title="HTMLs + fichero de configuración JSON en un único ZIP">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Paquete completo (HTML + config.json)
+        </button>
+        <div class="pgwrap" id="pgwrap">
+          <div class="pglbl"><span id="pgtxt">Generando&hellip;</span><span id="pgpct">0%</span></div>
+          <div class="pgbar"><div class="pgfill" id="pgfill"></div></div>
+        </div>
+      </div>
+
+      <div id="listsec" class="hidden">
+        <div class="slbl">2. Seleccionar procedimiento</div>
+        <div class="swrap">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" class="sinput" id="search" placeholder="Buscar por c&oacute;digo o nombre&hellip;">
+        </div>
+        <div class="qsel">
+          <button class="qsel-btn" onclick="selectAllVisible(true)">
+            <svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            Todos
+          </button>
+          <button class="qsel-btn" onclick="selectAllVisible(false)">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            Ninguno
+          </button>
+          <span class="qsel-info" id="qsel-info">0 seleccionados</span>
+        </div>
+        <div style="margin-top:4px;flex:1;overflow:hidden;display:flex;flex-direction:column">
+          <div class="plist" id="plist"></div>
+        </div>
+      </div>
+    </div><!-- /left -->
+
+    <!-- RIGHT -->
+    <div class="right">
+      <!-- Empty / onboarding -->
+      <div class="empty" id="empty">
+        <div class="onboarding">
+          <div class="onboarding-title">
+            <div class="onboarding-logo">
+              <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </div>
+            <div>
+              <h2>Generador de Fichas</h2>
+              <p id="ob-subtitle">Carga primero una configuraci&oacute;n de cliente, despu&eacute;s el Excel de procedimientos</p>
+            </div>
+          </div>
+          <div class="onboarding-steps">
+            <div class="ob-step">
+              <div class="ob-step-num">1</div>
+              <div class="ob-icon-wrap ob-icon-blue">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+              </div>
+              <div class="ob-connector"></div>
+              <div class="ob-content">
+                <h3>Selecciona la configuraci&oacute;n del cliente</h3>
+                <p>Ve al <strong>Configurador</strong> (bot&oacute;n en el header) para crear o cargar la configuraci&oacute;n de un cliente. Define las columnas del Excel, los bloques visibles y la plantilla HTML de salida.</p>
+                <div class="ob-tip"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Puedes tener tantas configuraciones como clientes</div>
+              </div>
+            </div>
+            <div class="ob-step">
+              <div class="ob-step-num">2</div>
+              <div class="ob-icon-wrap ob-icon-teal">
+                <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              </div>
+              <div class="ob-connector"></div>
+              <div class="ob-content">
+                <h3>Carga el Excel</h3>
+                <p>Arrastra o selecciona el fichero <strong>.xlsx</strong>, <strong>.xls</strong> o <strong>.ods</strong>. La herramienta detecta autom&aacute;ticamente los procedimientos seg&uacute;n la configuraci&oacute;n activa.</p>
+                <div class="ob-tip"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>El Excel puede tener tantas columnas como necesites</div>
+              </div>
+            </div>
+            <div class="ob-step">
+              <div class="ob-step-num">3</div>
+              <div class="ob-icon-wrap ob-icon-green">
+                <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </div>
+              <div class="ob-connector"></div>
+              <div class="ob-content">
+                <h3>Edita y descarga</h3>
+                <p>Selecciona procedimientos, edita el contenido de los bloques con formato rico y descarga los HTML listos para la sede electr&oacute;nica.</p>
+                <div class="ob-tip"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Las ediciones se guardan si cambias de procedimiento</div>
+              </div>
+            </div>
+          </div>
+          <!-- Inline upload -->
+          <div class="ob-upload" id="ob-upzone">
+            <input type="file" id="ob-finput" accept=".xlsx,.xls,.ods">
+            <div class="ob-upload-icon"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+            <div class="ob-upload-text"><strong>Arrastra aqu&iacute; el fichero Excel</strong><span>o haz clic para seleccionarlo desde tu equipo</span></div>
+            <div class="ob-upload-exts">.xlsx &nbsp;&middot;&nbsp; .xls &nbsp;&middot;&nbsp; .ods</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Procedure detail -->
+      <div id="proc-detail" class="hidden">
+        <div class="dhead">
+          <div class="dcode-badge" id="dcode"></div>
+          <div class="dinfo"><h2 id="dtitle"></h2><p id="dunit"></p></div>
+          <div class="dacts">
+            <button class="btn btn-o" onclick="copyHTML()">
+              <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copiar HTML
+            </button>
+            <button class="btn btn-p" onclick="downloadOne()">
+              <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Descargar HTML
+            </button>
+          </div>
+        </div>
+        <div class="tabs">
+          <button class="tab on" id="tbedit" onclick="switchTab('edit')">&#9999;&#65039; Editar campos</button>
+          <button class="tab" id="tbprev" onclick="switchTab('preview')">&#128065; Vista previa HTML</button>
+        </div>
+        <div id="tedit"><div class="fgrid" id="fgrid"></div></div>
+        <div id="tprev" class="hidden">
+          <div class="ptoolbar">
+            <div class="pdots"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+            <div class="pfname" id="pfname">procedimiento.html</div>
+          </div>
+          <div class="pcode"><pre id="hout"></pre></div>
+        </div>
+      </div>
+    </div><!-- /right -->
+  </div><!-- /layout -->
+</div><!-- /gen-mode -->
+
+<!-- ══ CONFIGURATOR MODE ══ -->
+<div id="cfg-mode" class="cfg-panel">
+
+  <!-- Saved configs list screen -->
+  <div id="cfg-list" class="cfg-list-screen">
+    <h2>Configuraciones de clientes</h2>
+    <p>Selecciona una configuraci&oacute;n existente para activarla, o crea una nueva para un cliente diferente.</p>
+    <div class="cfg-cards" id="cfg-cards">
+      <!-- cards rendered by JS -->
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-o" onclick="importCfgFile()">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Importar fichero .json
+      </button>
+      <input type="file" id="cfg-import-input" accept=".json" style="display:none" onchange="onImportCfgFile(event)">
+    </div>
+  </div>
+
+  <!-- Wizard screen -->
+  <div id="cfg-wizard-wrap" class="cfg-wizard hidden">
+    <div class="wiz-header">
+      <button class="wiz-back" onclick="showCfgList()">
+        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+        Volver a configuraciones
+      </button>
+      <h2 id="wiz-title">Nueva configuraci&oacute;n</h2>
+    </div>
+
+    <!-- Step progress -->
+    <div class="wiz-steps" id="wiz-steps">
+      <div class="wiz-step active" id="ws-0"><div class="wiz-step-dot">1</div><span class="wiz-step-label">Cliente</span><div class="wiz-step-line"></div></div>
+      <div class="wiz-step" id="ws-1"><div class="wiz-step-dot">2</div><span class="wiz-step-label">Excel</span><div class="wiz-step-line"></div></div>
+      <div class="wiz-step" id="ws-2"><div class="wiz-step-dot">3</div><span class="wiz-step-label">Bloques</span><div class="wiz-step-line"></div></div>
+      <div class="wiz-step" id="ws-3"><div class="wiz-step-dot">4</div><span class="wiz-step-label">Plantilla HTML</span><div class="wiz-step-line"></div></div>
+      <div class="wiz-step" id="ws-4" style="flex:0"><div class="wiz-step-dot">5</div><span class="wiz-step-label">Guardar</span></div>
+    </div>
+
+    <!-- Step 0: Client info -->
+    <div class="wiz-screen on" id="wscreen-0">
+      <div class="wiz-section">
+        <h3><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> Datos del cliente</h3>
+        <p>Empieza dando un nombre identificativo a esta configuraci&oacute;n.</p>
+        <label class="wiz-label">Nombre del cliente *</label>
+        <input type="text" class="wiz-input" id="wiz-client-name" placeholder="Ej: Ayuntamiento de Madrid" oninput="wizDraft.name=this.value">
+        <label class="wiz-label">Descripci&oacute;n (opcional)</label>
+        <input type="text" class="wiz-input" id="wiz-client-desc" placeholder="Ej: Sede electrónica — procedimientos v2024" oninput="wizDraft.desc=this.value">
+        <label class="wiz-label">C&oacute;digo de procedimiento — columna del Excel *</label>
+        <input type="text" class="wiz-input" id="wiz-code-col" placeholder="Ej: Abreviatura" value="Abreviatura" oninput="wizDraft.codeCol=this.value">
+        <label class="wiz-label">Patr&oacute;n de validaci&oacute;n del c&oacute;digo (expresi&oacute;n regular)</label>
+        <input type="text" class="wiz-input" id="wiz-code-pattern" placeholder="Ej: ^[A-Za-z]{3}$" value="^[A-Za-z]{3}$" oninput="wizDraft.codePattern=this.value">
+        <span class="wiz-hint">El patr&oacute;n determina qu&eacute; filas son procedimientos v&aacute;lidos. Por defecto: 3 letras exactas.</span>
+        <div id="wiz-step0-alert" class="hidden" style="margin-top:10px"></div>
+      </div>
+      <div class="wiz-nav">
+        <div></div>
+        <button class="btn btn-p" onclick="wizNext(0)">Siguiente &rarr;</button>
+      </div>
+    </div>
+
+    <!-- Step 1: Load Excel & map columns -->
+    <div class="wiz-screen hidden" id="wscreen-1">
+      <div class="wiz-section">
+        <h3><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Cargar Excel de muestra</h3>
+        <p>Carga un Excel representativo del cliente para detectar las columnas disponibles. Solo se usa para configurar — no genera fichas todav&iacute;a.</p>
+        <div class="upzone" id="wiz-upzone" style="padding:16px">
+          <input type="file" id="wiz-excel-input" accept=".xlsx,.xls,.ods" onchange="onWizExcel(event)">
+          <div class="upicon"><svg viewBox="0 0 24 24"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg></div>
+          <p><strong>Arrastra el Excel aqu&iacute;</strong> o haz clic</p>
+        </div>
+        <div id="wiz-excel-alert" class="hidden" style="margin-top:10px"></div>
+      </div>
+      <div class="wiz-section hidden" id="wiz-cols-section">
+        <h3><svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Columnas de referencia (no visibles en ficha)</h3>
+        <p>Marca las columnas que se usan internamente (t&iacute;tulo, denominaci&oacute;n, etc.) pero <strong>no aparecen como bloque</strong> en el HTML final.</p>
+        <!-- M10: column search filter -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <div class="swrap" style="flex:1">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" class="sinput" id="wiz-col-search" placeholder="Filtrar columnas&hellip;" oninput="filterWizCols(this.value)">
+          </div>
+          <span id="wiz-col-counter" style="font-size:11px;color:var(--muted);font-family:var(--mono);white-space:nowrap;flex-shrink:0">0 seleccionadas</span>
+        </div>
+        <div class="col-list" id="wiz-ref-cols"></div>
+      </div>
+      <div class="wiz-nav">
+        <button class="btn btn-o" onclick="wizBack(1)">&larr; Anterior</button>
+        <button class="btn btn-p" id="wiz-next-1" onclick="wizNext(1)" disabled>Siguiente &rarr;</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Define blocks -->
+    <div class="wiz-screen hidden" id="wscreen-2">
+      <div class="wiz-section">
+        <h3><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Bloques del acorde&oacute;n</h3>
+        <p>Define los bloques de informaci&oacute;n que aparecer&aacute;n en la ficha HTML. Arrastra para reordenar, o elimina los que no necesites. Cada bloque se mapea a una columna del Excel.</p>
+        <div class="block-list" id="wiz-block-list"></div>
+        <div class="add-block-row" style="margin-top:10px">
+          <select class="wiz-select" id="wiz-add-col" style="flex:1">
+            <option value="">— Seleccionar columna del Excel —</option>
+          </select>
+          <input type="text" class="wiz-input" id="wiz-add-label" placeholder="Nombre del bloque (etiqueta)" style="flex:1">
+          <button class="btn btn-teal" onclick="addBlock()">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            A&ntilde;adir
+          </button>
+        </div>
+        <!-- M7: inline validation message instead of alert() -->
+        <div id="wiz-blocks-alert" class="hidden" style="margin-top:10px"></div>
+      </div>
+      <div class="wiz-nav">
+        <button class="btn btn-o" onclick="wizBack(2)">&larr; Anterior</button>
+        <button class="btn btn-p" onclick="wizNext(2)">Siguiente &rarr;</button>
+      </div>
+    </div>
+
+    <!-- Step 3: HTML template -->
+    <div class="wiz-screen hidden" id="wscreen-3">
+      <div class="wiz-section">
+        <h3><svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> Plantilla HTML de salida</h3>
+        <p>Define c&oacute;mo se genera el HTML de cada ficha. Usa los <strong>marcadores</strong> indicados para que la herramienta inserte el contenido din&aacute;mico.</p>
+        <div class="alert alert-warn">
+          <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <div>Marcadores disponibles: <code>{{TITLE}}</code> (t&iacute;tulo del procedimiento), <code>{{BLOCKS}}</code> (todos los bloques del acorde&oacute;n generados), <code>{{CODE}}</code> (c&oacute;digo del procedimiento).</div>
+        </div>
+
+        <label class="wiz-label">Columna del Excel para el t&iacute;tulo del procedimiento</label>
+        <select class="wiz-select" id="wiz-title-col" oninput="wizDraft.titleCol=this.value"></select>
+
+        <label class="wiz-label">Cabecera HTML (antes de los bloques)</label>
+        <textarea class="wiz-textarea" id="wiz-tpl-head" rows="10" oninput="wizDraft.tplHead=this.value" placeholder="&lt;p&gt;&#10;    &lt;meta charset=&quot;utf-8&quot;&gt;&#10;    &lt;title&gt;{{TITLE}}&lt;/title&gt;&#10;    ...&#10;&lt;/p&gt;&#10;&lt;main&gt;&#10;  &lt;div class=&quot;accordion&quot; id=&quot;procedureSheetAccordion&quot;&gt;"></textarea>
+
+        <label class="wiz-label">Plantilla de cada bloque del acorde&oacute;n</label>
+        <textarea class="wiz-textarea" id="wiz-tpl-block" rows="12" oninput="wizDraft.tplBlock=this.value"></textarea>
+        <span class="wiz-hint">Marcadores del bloque: <code>{{BLOCK_ID}}</code> (n&uacute;mero), <code>{{BLOCK_LABEL}}</code> (etiqueta), <code>{{BLOCK_CONTENT}}</code> (contenido), <code>{{FIRST_CLASS}}</code> ('' o 'collapsed'), <code>{{FIRST_SHOW}}</code> ('' o ' show')</span>
+
+        <label class="wiz-label">Pie HTML (despu&eacute;s de los bloques)</label>
+        <textarea class="wiz-textarea" id="wiz-tpl-foot" rows="4" oninput="wizDraft.tplFoot=this.value" placeholder="  &lt;/div&gt;&#10;&lt;/main&gt;&#10;&lt;script src=&quot;theme/js/bootstrap.bundle.min.js&quot;&gt;&lt;/script&gt;"></textarea>
+
+        <div style="margin-top:12px">
+          <button class="btn btn-o" onclick="loadDefaultTemplate()">
+            <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            Cargar plantilla por defecto (MAU)
+          </button>
+        </div>
+        <div id="wiz-step3-alert" class="hidden" style="margin-top:10px"></div>
+      </div>
+      <div class="wiz-nav">
+        <button class="btn btn-o" onclick="wizBack(3)">&larr; Anterior</button>
+        <button class="btn btn-p" onclick="wizNext(3)">Siguiente &rarr;</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Save & activate -->
+    <div class="wiz-screen hidden" id="wscreen-4">
+      <div class="wiz-section">
+        <h3><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Resumen de la configuraci&oacute;n</h3>
+        <div id="wiz-summary"></div>
+      </div>
+      <div class="wiz-section">
+        <h3><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar configuraci&oacute;n</h3>
+        <p style="font-size:12.5px;color:var(--muted);margin-bottom:10px">Guarda el fichero <code>.json</code> para reutilizar esta configuraci&oacute;n en el futuro sin tener que repetir el asistente.</p>
+        <button class="btn btn-o" onclick="exportCfgJson()">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Descargar config_<span id="export-name-hint">cliente</span>.json
+        </button>
+      </div>
+      <div class="wiz-nav">
+        <button class="btn btn-o" onclick="wizBack(4)">&larr; Anterior</button>
+        <button class="btn btn-teal" onclick="activateConfig()">
+          <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <span id="wiz-save-label">Activar y usar esta configuraci&oacute;n</span>
+        </button>
+      </div>
+    </div>
+  </div><!-- /cfg-wizard-wrap -->
+</div><!-- /cfg-mode -->
+
+<!-- ══ BLOCK PREVIEW MODAL ══ -->
+<div class="bpmodal-overlay" id="bp-overlay" onclick="closeBpModal(event)">
+  <div class="bpmodal" role="dialog" aria-modal="true">
+    <div class="bpmodal-head">
+      <span class="bptag" id="bp-code"></span>
+      <h3 id="bp-title">Vista previa del bloque</h3>
+      <button class="bpmodal-close" onclick="closeBpModal()">&#x2715;</button>
+    </div>
+    <div style="display:flex;gap:2px;background:var(--s2);border-bottom:1px solid var(--border);padding:6px 12px 0">
+      <button class="bptab on" id="bptab-render" onclick="switchBpTab('render')">&#128065; Renderizado</button>
+      <button class="bptab" id="bptab-code" onclick="switchBpTab('code')">&#60;/&#62; HTML</button>
+      <button class="bptab" id="bptab-iframe" onclick="switchBpTab('iframe')">&#127760; Vista real</button>
+    </div>
+    <div class="bpmodal-body" id="bppanel-render">
+      <div class="bp-accordion">
+        <div class="bp-acc-btn"><span id="bp-section-lbl"></span><svg class="bp-acc-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></div>
+        <div id="bp-content-area"></div>
+      </div>
+    </div>
+    <div class="bpmodal-body hidden" id="bppanel-code">
+      <div class="bp-code-toolbar">
+        <span class="bp-code-fname" id="bp-fname">bloque.html</span>
+        <button class="bp-copy-btn" onclick="copyBlockHTML()" id="bp-copy-btn">
+          <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copiar HTML
+        </button>
+      </div>
+      <div class="bp-code-block"><pre id="bp-html-out"></pre></div>
+    </div>
+    <!-- M12: real rendered iframe tab -->
+    <div class="bpmodal-body hidden" id="bppanel-iframe" style="padding:0;background:#f5f5f5">
+      <div style="padding:8px 14px;background:#e8edf8;border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px">
+        <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:var(--muted);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Vista renderizada con Bootstrap y estilos del tema del cliente. Los recursos externos (CSS/JS) deben estar accesibles desde este equipo.
+      </div>
+      <iframe id="bp-iframe" style="width:100%;height:400px;border:none;background:#fff" sandbox="allow-same-origin allow-scripts"></iframe>
+    </div>
+    <div class="bpmodal-foot"><button class="btn btn-o" onclick="closeBpModal()">Cerrar</button></div>
+  </div>
+</div>
+
+<!-- ══ LINK MODAL ══ -->
+<div class="modal-overlay" id="link-overlay" onclick="closeLinkModal(event)">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Insertar enlace</h3>
+    <label for="link-url">URL del enlace</label>
+    <input type="url" id="link-url" placeholder="https://…" oninput="updateLinkPreview()" autocomplete="off">
+    <label for="link-text">Texto visible <span style="font-weight:400;color:#aaa">(opcional)</span></label>
+    <input type="text" id="link-text" placeholder="Texto que verá el ciudadano" oninput="updateLinkPreview()">
+    <label>Vista previa</label>
+    <div class="modal-preview" id="link-preview">El enlace aparecer&aacute; aqu&iacute;&hellip;</div>
+    <div class="modal-actions">
+      <button class="btn btn-o" onclick="closeLinkModal()">Cancelar</button>
+      <button class="btn btn-p" id="link-confirm" onclick="confirmLink()"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Insertar enlace</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <svg viewBox="0 0 24 24" stroke="var(--teal)" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+  <span id="tmsg">OK</span>
+</div>
+
+<footer class="app-footer">
+  <div class="app-footer-inner">
+    <div class="app-footer-brand">
+      <div class="app-footer-logo"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+      <div><span class="app-footer-name">Guadaltel</span><span class="app-footer-product">Generador de Fichas de Sede Electr&oacute;nica</span></div>
+    </div>
+    <div class="app-footer-divider"></div>
+    <div class="app-footer-audit">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <div><span class="app-footer-audit-label">Auditor&iacute;a</span><span class="app-footer-audit-name">Francisco Condado Delgado</span></div>
+    </div>
+    <div class="app-footer-copy">&copy; <script>document.write(new Date().getFullYear())</script> Guadaltel S.A.</div>
+  </div>
+</footer>
+
+<script>
+'use strict';
+
+// ══════════════════════════════════════════════════════════════════
+// ACCENT ENCODING
+// ══════════════════════════════════════════════════════════════════
+const ACCENT_MAP={'á':'&aacute;','é':'&eacute;','í':'&iacute;','ó':'&oacute;','ú':'&uacute;','à':'&agrave;','è':'&egrave;','ì':'&igrave;','ò':'&ograve;','ù':'&ugrave;','â':'&acirc;','ê':'&ecirc;','î':'&icirc;','ô':'&ocirc;','û':'&ucirc;','ä':'&auml;','ë':'&euml;','ï':'&iuml;','ö':'&ouml;','ü':'&uuml;','Á':'&Aacute;','É':'&Eacute;','Í':'&Iacute;','Ó':'&Oacute;','Ú':'&Uacute;','À':'&Agrave;','È':'&Egrave;','Ì':'&Igrave;','Ò':'&Ograve;','Ù':'&Ugrave;','Â':'&Acirc;','Ê':'&Ecirc;','Î':'&Icirc;','Ô':'&Ocirc;','Û':'&Ucirc;','Ä':'&Auml;','Ë':'&Euml;','Ï':'&Iuml;','Ö':'&Ouml;','Ü':'&Uuml;','ñ':'&ntilde;','Ñ':'&Ntilde;','ç':'&ccedil;','Ç':'&Ccedil;','ª':'&ordf;','º':'&ordm;','€':'&euro;','©':'&copy;','®':'&reg;','«':'&laquo;','»':'&raquo;','¿':'&iquest;','¡':'&iexcl;'};
+const ACCENT_RE=new RegExp('['+Object.keys(ACCENT_MAP).join('').replace(/[-\]\\^]/g,'\\$&')+']','g');
+function encodeText(s){return s?String(s).replace(ACCENT_RE,m=>ACCENT_MAP[m]||m):''}
+function encodeHtml(html) {
+  if (!html) return '';
+  // Walk chunks: HTML tags → keep as-is, existing &entities; → keep as-is, text → encode accents only
+  return html.replace(/(<[^>]*>)|(&[a-zA-Z#0-9]+;)|([^<&]+)|(&)/g, (m, tag, entity, text, amp) => {
+    if (tag)    return tag;      // HTML tag — untouched
+    if (entity) return entity;  // already-encoded entity — untouched (prevents &amp; → &amp;amp;)
+    if (amp)    return '&';     // bare & not part of entity — leave as-is (browser will handle)
+    return encodeText(text);    // plain text node — encode accents
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// DEFAULT CONFIG (v1 — MAU)
+// ══════════════════════════════════════════════════════════════════
+const DEFAULT_TPL_HEAD=`<p>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="Informaci&oacute;n detallada del tr&aacute;mite administrativo organizada en apartados desplegables.">
+    <title>{{TITLE}} &mdash; Ficha del tr&aacute;mite</title>
+    <link rel="stylesheet" href="theme/css/variables.css">
+    <link rel="stylesheet" href="theme/css/poppins.css">
+    <link rel="stylesheet" href="theme/css/bootstrap.min.css">
+    <link rel="stylesheet" href="theme/css/layout.css">
+    <link rel="stylesheet" href="theme/css/header.css">
+    <link rel="stylesheet" href="theme/css/style.css">
+    <link rel="stylesheet" href="theme/css/LP-style.css">
+
+
+    <a href="#contenido-principal" class="visually-hidden-focusable position-absolute top-0 start-0 z-3 m-2 btn btn-sm btn-primary">Saltar al contenido principal</a>
+</p>
+<main id="contenido-principal" class="container py-3 py-md-4" tabindex="-1">
+    <h1 class="visually-hidden">Ficha del tr&aacute;mite administrativo</h1>
+    <section aria-label="Informaci&oacute;n del tr&aacute;mite por apartados">
+        <div class="accordion procedure-sheet-accordion" id="procedureSheetAccordion">`;
+
+const DEFAULT_TPL_BLOCK=`
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="heading-{{BLOCK_ID}}">
+                    <button class="accordion-button{{FIRST_CLASS}}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{BLOCK_ID}}" aria-expanded="{{FIRST_ARIA}}" aria-controls="collapse-{{BLOCK_ID}}">
+                        <!-- El siguiente texto es el contenido del h2 (titular del apartado). -->
+                        {{BLOCK_LABEL}}
+                    </button>
+                </h2>
+                <div id="collapse-{{BLOCK_ID}}" role="region" class="accordion-collapse collapse{{FIRST_SHOW}}" aria-labelledby="heading-{{BLOCK_ID}}" data-bs-parent="#procedureSheetAccordion">
+                    <div class="accordion-body">
+                        <!-- Aquí va el contenido del apartado (cuerpo de la sección del acordeón). -->
+                        {{BLOCK_CONTENT}}
+                        <!-- Fin del contenido del apartado (cierre del cuerpo de la sección). -->
+                    </div>
+                </div>
+            </div>`;
+
+const DEFAULT_TPL_FOOT=`
+        </div>
+    </section>
+</main>
+<script src="theme/js/bootstrap.bundle.min.js"><\\/script>`;
+
+const DEFAULT_CONFIG = {
+  id: 'mau-default',
+  name: 'Ayuntamiento (MAU) — Por defecto',
+  desc: 'Configuración original del Ayuntamiento. 18 bloques, plantilla Bootstrap.',
+  codeCol: 'Abreviatura',
+  codePattern: '^[A-Za-z]{3}$',
+  titleCol: 'Título para el ciudadano',
+  refCols: ['Abreviatura','Denominación','Título para el ciudadano'],
+  blocks: [
+    {key:'Descripción',label:'Descripción'},
+    {key:'Quién puede realizar la solicitud',label:'Quién puede realizar la solicitud'},
+    {key:'Requisitos de iniciación',label:'Requisitos de iniciación'},
+    {key:'Fechas en las que puedo presentar',label:'Fechas en las que puedo presentar'},
+    {key:'Plazo de resolución',label:'Plazo de resolución'},
+    {key:'Cómo lo puede presentar',label:'Cómo lo puede presentar'},
+    {key:'Dónde lo puede presentar',label:'Dónde lo puede presentar'},
+    {key:'Documentación a aportar',label:'Documentación a aportar'},
+    {key:'Unidad tramitadora',label:'Unidad tramitadora'},
+    {key:'Órgano de resolución',label:'Órgano de resolución'},
+    {key:'Obligaciones económicas',label:'Obligaciones económicas'},
+    {key:'Normativa',label:'Normativa'},
+    {key:'Efectos de silencio',label:'Efectos de silencio'},
+    {key:'Fin a la vía administrativa',label:'Fin a la vía administrativa'},
+    {key:'Notificación',label:'Notificación'},
+    {key:'Enlaces de interés',label:'Enlaces de interés'},
+    {key:'Trámites relacionados',label:'Trámites relacionados'},
+    {key:'Observaciones',label:'Observaciones'},
+  ],
+  tplHead: DEFAULT_TPL_HEAD,
+  tplBlock: DEFAULT_TPL_BLOCK,
+  tplFoot: DEFAULT_TPL_FOOT,
+  createdAt: '2025-01-01',
+};
+
+// ══════════════════════════════════════════════════════════════════
+// CONFIG STORE  (memoria de sesión — persiste exportando JSON)
+// ══════════════════════════════════════════════════════════════════
+let _sessionCfgs = []; // configuraciones importadas o creadas en esta sesión
+
+function allConfigs() {
+  // DEFAULT siempre presente en primera posición
+  const withoutDef = _sessionCfgs.filter(c => c.id !== DEFAULT_CONFIG.id);
+  return [DEFAULT_CONFIG, ...withoutDef];
+}
+
+function saveConfig(cfg) {
+  if (cfg.id === DEFAULT_CONFIG.id) return;
+  _sessionCfgs = _sessionCfgs.filter(c => c.id !== cfg.id);
+  _sessionCfgs.push(cfg);
+}
+
+function deleteConfig(id) {
+  if (id === DEFAULT_CONFIG.id) return;
+  _sessionCfgs = _sessionCfgs.filter(c => c.id !== id);
+  if (activeCfg && activeCfg.id === id) activeCfg = DEFAULT_CONFIG;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ACTIVE CONFIG
+// ══════════════════════════════════════════════════════════════════
+let activeCfg = null;
+
+function applyConfig(cfg) {
+  activeCfg = cfg;
+  // Update client bar
+  document.getElementById('client-bar').classList.add('on');
+  document.getElementById('cb-name-txt').textContent = cfg.name;
+  document.getElementById('cb-meta-txt').textContent = (cfg.blocks||[]).length + ' bloques · ' + (cfg.codeCol||'Abreviatura');
+  toast('Configuración activada: ' + cfg.name);
+}
+
+function loadActiveConfig() {
+  // On first load always use default — no persistence between sessions
+  activeCfg = DEFAULT_CONFIG;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// GENERATOR STATE
+// ══════════════════════════════════════════════════════════════════
+let procs=[], curProc=null, curEdits={}, allEdits={}, selectedCodes=new Set();
+
+// ══════════════════════════════════════════════════════════════════
+// MODE SWITCHING
+// ══════════════════════════════════════════════════════════════════
+let currentMode = 'gen';
+function setMode(mode) {
+  // Fix 5: sync any in-progress edits before leaving generator
+  if (currentMode === 'gen' && curProc) { syncEdits(); allEdits[curProc._code] = { ...curEdits }; }
+  currentMode = mode;
+  document.getElementById('gen-mode').style.display = mode==='gen' ? 'flex' : 'none';
+  document.getElementById('cfg-mode').classList.toggle('on', mode==='cfg');
+  document.getElementById('mb-gen').classList.toggle('active', mode==='gen');
+  document.getElementById('mb-cfg').classList.toggle('active', mode==='cfg');
+  if (mode==='cfg') renderCfgList();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// FILE UPLOAD (generator)
+// ══════════════════════════════════════════════════════════════════
+const upzone=document.getElementById('upzone'), finput=document.getElementById('finput');
+upzone.addEventListener('dragover',e=>{e.preventDefault();upzone.classList.add('drag')});
+upzone.addEventListener('dragleave',()=>upzone.classList.remove('drag'));
+upzone.addEventListener('drop',e=>{e.preventDefault();upzone.classList.remove('drag');if(e.dataTransfer.files[0])processFile(e.dataTransfer.files[0])});
+finput.addEventListener('change',e=>{if(e.target.files[0])processFile(e.target.files[0])});
+const obZone=document.getElementById('ob-upzone'), obInput=document.getElementById('ob-finput');
+obZone.addEventListener('dragover',e=>{e.preventDefault();obZone.classList.add('drag')});
+obZone.addEventListener('dragleave',()=>obZone.classList.remove('drag'));
+obZone.addEventListener('drop',e=>{e.preventDefault();obZone.classList.remove('drag');if(e.dataTransfer.files[0])processFile(e.dataTransfer.files[0])});
+obInput.addEventListener('change',e=>{if(e.target.files[0])processFile(e.target.files[0])});
+
+function processFile(file) {
+  if (!activeCfg) { alert('Primero activa una configuración de cliente en el Configurador.'); return; }
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      parseRows(rows);
+      toast('Excel cargado: '+file.name);
+    }catch(err){alert('Error al leer el fichero: '+err.message)}
+  };
+  r.readAsArrayBuffer(file);
+}
+
+function isCode(v) {
+  if (!v||!activeCfg) return false;
+  const s=String(v).trim();
+  try{ return new RegExp(activeCfg.codePattern||'^[A-Za-z]{3}$').test(s)&&s.toUpperCase()!=='NAN'; }
+  catch{ return /^[A-Za-z]{3}$/.test(s); }
+}
+function clean(v){const s=String(v==null?'':v).trim();return(s==='nan'||s==='None'||s==='undefined')?'':s}
+
+function parseRows(rows) {
+  const cfg = activeCfg;
+  const allKeys=[...(cfg.refCols||[]),...(cfg.blocks||[]).map(b=>b.key)];
+  procs=rows.filter(r=>isCode(r[cfg.codeCol])).map(r=>{
+    const o={_code:String(r[cfg.codeCol]).trim().toUpperCase()};
+    allKeys.forEach(k=>{o[k]=clean(r[k])});
+    return o;
+  });
+  allEdits={}; curProc=null; curEdits={}; selectedCodes=new Set();
+  renderList(); updateStats();
+  show('statsec'); show('listsec');
+  document.getElementById('hcount').textContent=procs.length+' procedimientos';
+  hide('proc-detail'); show('empty');
+
+  // Warn if no valid rows were found
+  if (procs.length === 0) {
+    toast('⚠ No se encontraron procedimientos válidos. Comprueba que la columna "' + cfg.codeCol + '" existe y el patrón "' + (cfg.codePattern||'^[A-Za-z]{3}$') + '" es correcto.');
+  }
+}
+
+function updateStats(){
+  document.getElementById('stotal').textContent=procs.length;
+  const firstBlock=(activeCfg&&activeCfg.blocks&&activeCfg.blocks[0])?activeCfg.blocks[0].key:'';
+  document.getElementById('sready').textContent=procs.filter(p=>clean(p[firstBlock])).length;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SELECTION
+// ══════════════════════════════════════════════════════════════════
+function updateSelectionUI(){
+  const n=selectedCodes.size;
+  document.getElementById('qsel-info').textContent=n+' seleccionados';
+  const bs=document.getElementById('btnsel');
+  if(n>0){bs.classList.remove('hidden');document.getElementById('selcount').textContent=n}
+  else bs.classList.add('hidden');
+}
+function toggleCheck(code,e){
+  e.stopPropagation();
+  selectedCodes.has(code)?selectedCodes.delete(code):selectedCodes.add(code);
+  const item=document.getElementById('li-'+code);
+  if(item)item.classList.toggle('checked',selectedCodes.has(code));
+  updateSelectionUI();
+}
+function selectAllVisible(check){
+  document.querySelectorAll('.pitem').forEach(el=>{
+    const code=el.dataset.code;if(!code)return;
+    check?selectedCodes.add(code):selectedCodes.delete(code);
+    el.classList.toggle('checked',check);
+  });
+  updateSelectionUI();
+}
+
+function renderList(filter){
+  const f=(filter||'').toLowerCase();
+  const cfg=activeCfg||DEFAULT_CONFIG;
+  const titleKey=cfg.titleCol||((cfg.refCols||[])[2])||'';
+  const fl=procs.filter(p=>!f||p._code.toLowerCase().includes(f)||(p[titleKey]||'').toLowerCase().includes(f));
+  document.getElementById('plist').innerHTML=fl.map(p=>{
+    const isChecked=selectedCodes.has(p._code);
+    const isEdited=!!allEdits[p._code];  // Fix 9
+    const nm=escAttr(p[titleKey]||p[cfg.codeCol]||p._code);
+    return `<div class="pitem${isChecked?' checked':''}${isEdited?' edited':''}" id="li-${p._code}" data-code="${p._code}">
+      <div class="pchk" onclick="toggleCheck('${p._code}',event)"><svg viewBox="0 0 12 12"><polyline points="2 6 5 9 10 3"/></svg></div>
+      <span class="pcode" onclick="selectProc('${p._code}')">${p._code}</span>
+      <span class="pnm" onclick="selectProc('${p._code}')">${nm}</span>
+    </div>`;
+  }).join('');
+}
+document.getElementById('search').addEventListener('input',e=>renderList(e.target.value));
+
+// Fix 9: refresh edited dot on a single list item without re-rendering the whole list
+function refreshEditedDot(code){
+  const el=document.getElementById('li-'+code);
+  if(el)el.classList.toggle('edited',!!allEdits[code]);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SELECT PROCEDURE
+// ══════════════════════════════════════════════════════════════════
+function selectProc(code){
+  if(curProc){
+    syncEdits();
+    allEdits[curProc._code]={...curEdits};
+    refreshEditedDot(curProc._code); // Fix 9
+  }
+  curProc=procs.find(p=>p._code===code);
+  if(!curProc)return;
+  curEdits=allEdits[code]?{...allEdits[code]}:{};
+  if(!allEdits[code]){
+    const cfg=activeCfg||DEFAULT_CONFIG;
+    [...(cfg.refCols||[]),...(cfg.blocks||[]).map(b=>b.key)].forEach(k=>{
+      curEdits[k]=curProc[k]?rawToHtml(curProc[k]):'';
+    });
+  }
+
+  document.querySelectorAll('.pitem').forEach(el=>el.classList.remove('sel'));
+  const li=document.getElementById('li-'+code);
+  if(li){li.classList.add('sel');li.scrollIntoView({block:'nearest'})}
+
+  const cfg=activeCfg||DEFAULT_CONFIG;
+  const titleKey=cfg.titleCol||'';
+  hide('empty'); show('proc-detail');
+  document.getElementById('dcode').textContent=code;
+  document.getElementById('dtitle').textContent=curProc[titleKey]||code;
+  // Show subtitle from second refCol if available (e.g. Unidad tramitadora in MAU)
+  const subtitleKey=(cfg.refCols||[])[1]||'';
+  const subtitle=subtitleKey&&curProc[subtitleKey]?'📁 '+curProc[subtitleKey]:'';
+  document.getElementById('dunit').textContent=subtitle;
+  document.getElementById('pfname').textContent=code.toLowerCase()+'.html';
+
+  renderFields(); switchTab('edit');
+
+  if(window.innerWidth<=900){
+    const left=document.querySelector('.left'),overlay=document.getElementById('sidebar-overlay'),btn=document.getElementById('hd-menu-btn');
+    left.classList.remove('open');overlay.classList.remove('on');
+    if(btn){btn.setAttribute('aria-expanded','false');btn.querySelector('svg').innerHTML='<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>'}
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// rawToHtml  — plain text → editor HTML
+// ══════════════════════════════════════════════════════════════════
+function rawToHtml(raw){
+  if(!raw)return '';
+  const lines=raw.split(/\r?\n/).map(l=>l.trimEnd());
+  let html='',mode=null;
+  const closeList=()=>{if(mode){html+=(mode==='ul'?'</ul>':'</ol>');mode=null}};
+  lines.forEach(line=>{
+    if(!line){closeList();return}
+    const ulM=line.match(/^[-\u2022]\s+(.*)/),olM=line.match(/^\d+[.)]\s+(.*)/);
+    if(ulM){if(mode!=='ul'){closeList();html+='<ul>';mode='ul'}html+='<li>'+escHtmlText(ulM[1])+'</li>'}
+    else if(olM){if(mode!=='ol'){closeList();html+='<ol>';mode='ol'}html+='<li>'+escHtmlText(olM[1])+'</li>'}
+    else{closeList();html+='<p>'+escHtmlText(line)+'</p>'}
+  });
+  closeList();
+  return html;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// FIELDS EDITOR  — driven by activeCfg.blocks
+// ══════════════════════════════════════════════════════════════════
+function renderFields(){
+  const cfg=activeCfg||DEFAULT_CONFIG;
+  let html='',idx=0;
+  // Reference fields
+  (cfg.refCols||[]).forEach((k,i)=>{
+    idx++;
+    const lbl=k;
+    const val=curEdits[k]||'';
+    html+=buildField('ref-'+i,idx,lbl,val,false,k,'<span class="fbadge ref">&#128683; No visible</span>');
+  });
+  // Block fields
+  (cfg.blocks||[]).forEach((b,i)=>{
+    idx++;
+    const val=curEdits[b.key]||'';
+    const hasData=textContent(val).trim()!=='';
+    const badge=hasData?'<span class="fbadge ok">Con datos</span>':'<span class="fbadge err">⚠ Sin datos</span>';
+    html+=buildField('sec-'+i,idx,b.label,val,true,b.key,badge);
+  });
+  document.getElementById('fgrid').innerHTML=html;
+  document.querySelectorAll('.rtedit').forEach(el=>{
+    el.addEventListener('input',()=>onEdit(el));
+    el.addEventListener('blur',()=>onEdit(el));
+    if(el.dataset.isSec==='true') updateCharCount(el); // B9: init on render
+  });
+}
+
+function buildField(edId,num,lbl,htmlVal,isSection,dataKey,badge){
+  const fgCls=isSection&&textContent(htmlVal).trim()===''?'fg has-err':'fg'+(isSection?'':' fg-ref');
+  const ph=isSection?'Escribe el contenido de este bloque…':'';
+  const keyB64=btoa(unescape(encodeURIComponent(dataKey)));
+  const toolbar=isSection?`
+    <div class="rtbar">
+      <button class="rtbtn" title="Párrafo" onmousedown="ev(event)" onclick="rtCmd('${edId}','p')">¶ Párrafo</button>
+      <div class="rtbar-sep"></div>
+      <button class="rtbtn" onmousedown="ev(event)" onclick="rtCmd('${edId}','ul')"><svg viewBox="0 0 24 24"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>Viñetas</button>
+      <button class="rtbtn" onmousedown="ev(event)" onclick="rtCmd('${edId}','ol')"><svg viewBox="0 0 24 24"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h1v4M4 10h2M6 18H4c0-1 2-2 2-3s-1-1.5-2-1" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>Numerada</button>
+      <div class="rtbar-sep"></div>
+      <button class="rtbtn" onmousedown="ev(event)" onclick="rtCmd('${edId}','indent')"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/><polyline points="9 12 13 9 13 15 9 12"/><line x1="13" y1="12" x2="21" y2="12"/></svg>+Nivel</button>
+      <button class="rtbtn" onmousedown="ev(event)" onclick="rtCmd('${edId}','outdent')"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/><polyline points="13 12 9 9 9 15 13 12"/><line x1="3" y1="12" x2="11" y2="12"/></svg>−Nivel</button>
+      <button class="rtbtn" onmousedown="ev(event)" onclick="rtCmd('${edId}','nomark')"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>Sin viñeta</button>
+      <div class="rtbar-sep"></div>
+      <button class="rtbtn" onmousedown="ev(event)" onclick="rtCmd('${edId}','bold')"><b>N</b></button>
+      <div class="rtbar-sep"></div>
+      <button class="rtbtn" onmousedown="ev(event)" onclick="openLinkModal('${edId}')"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Enlace</button>
+      <div class="rtbar-sep"></div>
+      <button class="rtbtn" onmousedown="ev(event)" onclick="openBpModal('${edId}')"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Previsualizar</button>
+    </div>`:'';
+  const charCounter = isSection
+    ? `<div class="char-count" id="cc-${edId}">0 caracteres</div>`
+    : '';
+  return `<div class="${fgCls}" id="fg-${edId}">
+    <div class="fgh">
+      <span class="fnum">${String(num).padStart(2,'0')}</span>
+      <span class="fname">${escHtmlText(lbl)}</span>
+      ${badge||''}
+    </div>
+    <div class="fgb">${toolbar}<div class="rtedit" id="${edId}" contenteditable="true" data-keyb64="${btoa(unescape(encodeURIComponent(dataKey)))}" data-is-sec="${isSection}" data-ph="${ph}">${htmlVal}</div>${charCounter}</div>
+  </div>`;
+}
+
+function onEdit(el){
+  curEdits[b64key(el)]=el.innerHTML;
+  if(el.dataset.isSec==='true') updateCharCount(el); // B9
+  if(el.dataset.isSec!=='true')return;
+  const fg=document.getElementById('fg-'+el.id),badge=fg?fg.querySelector('.fbadge'):null;
+  const has=textContent(el.innerHTML).trim()!=='';
+  if(fg)fg.classList.toggle('has-err',!has);
+  if(badge){badge.className=has?'fbadge ok':'fbadge err';badge.textContent=has?'Con datos':'⚠ Sin datos'}
+}
+function b64key(el){try{return decodeURIComponent(escape(atob(el.dataset.keyb64)))}catch{return el.dataset.keyb64}}
+function ev(e){e.preventDefault()}
+
+function rtCmd(edId,cmd){
+  const el=document.getElementById(edId);if(!el)return;el.focus();
+  if(cmd==='p')document.execCommand('formatBlock',false,'p');
+  else if(cmd==='ul')document.execCommand('insertUnorderedList',false,null);
+  else if(cmd==='ol')document.execCommand('insertOrderedList',false,null);
+  else if(cmd==='indent')document.execCommand('indent',false,null);
+  else if(cmd==='outdent')document.execCommand('outdent',false,null);
+  else if(cmd==='bold')document.execCommand('bold',false,null);
+  else if(cmd==='nomark'){
+    const sel=window.getSelection();
+    if(sel&&sel.rangeCount>0){let node=sel.anchorNode;while(node&&node!==el){if(node.nodeName==='LI'){const cur=node.style.listStyle||node.style.listStyleType;node.style.listStyle=cur==='none'?'':'none';break}node=node.parentNode}}
+  }
+  onEdit(el);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════════════════════════
+function switchTab(name){
+  document.getElementById('tbedit').classList.toggle('on',name==='edit');
+  document.getElementById('tbprev').classList.toggle('on',name==='preview');
+  document.getElementById('tedit').classList.toggle('hidden',name!=='edit');
+  document.getElementById('tprev').classList.toggle('hidden',name!=='preview');
+  if(name==='preview'){syncEdits();document.getElementById('hout').textContent=generateHTML(curEdits)}
+}
+
+// ══════════════════════════════════════════════════════════════════
+// HTML GENERATION  — fully driven by activeCfg templates
+// ══════════════════════════════════════════════════════════════════
+function generateHTML(data){
+  const cfg=activeCfg||DEFAULT_CONFIG;
+  const titleKey=cfg.titleCol||'';
+  const title=encodeText(data[titleKey]||data._code||'');
+  let blocks='';
+  (cfg.blocks||[]).forEach((b,i)=>{
+    const n=i+1, isFirst=i===0;
+    const rawHtml=(data[b.key]||'').trim();
+    const body=rawHtml?encodeHtml(rawHtml):'<!-- Contenido pendiente de completar -->';
+    const blockTpl=cfg.tplBlock||DEFAULT_TPL_BLOCK;
+    blocks+=blockTpl
+      .replace(/\{\{BLOCK_ID\}\}/g,String(n))
+      .replace(/\{\{BLOCK_LABEL\}\}/g,encodeText(b.label))
+      .replace(/\{\{BLOCK_CONTENT\}\}/g,body)
+      .replace(/\{\{FIRST_CLASS\}\}/g,isFirst?'':' collapsed')
+      .replace(/\{\{FIRST_ARIA\}\}/g,String(isFirst))
+      .replace(/\{\{FIRST_SHOW\}\}/g,isFirst?' show':'');
+  });
+  const head=(cfg.tplHead||DEFAULT_TPL_HEAD).replace(/\{\{TITLE\}\}/g,title).replace(/\{\{CODE\}\}/g,data._code||'');
+  const foot=(cfg.tplFoot||DEFAULT_TPL_FOOT).replace(/\{\{TITLE\}\}/g,title).replace(/\{\{CODE\}\}/g,data._code||'');
+  return head+blocks+foot;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// DOWNLOAD
+// ══════════════════════════════════════════════════════════════════
+function buildEdits(p){
+  if(allEdits[p._code])return{...allEdits[p._code],_code:p._code};
+  const cfg=activeCfg||DEFAULT_CONFIG;
+  const ed={_code:p._code};
+  [...(cfg.refCols||[]),...(cfg.blocks||[]).map(b=>b.key)].forEach(k=>{ed[k]=p[k]?rawToHtml(p[k]):''});
+  return ed;
+}
+
+function downloadOne(){
+  if(!curProc)return;
+  syncEdits();
+  allEdits[curProc._code]={...curEdits};
+  refreshEditedDot(curProc._code); // Fix 9
+  const fname=curProc._code.toLowerCase()+'.html';
+  blobDl(new Blob([generateHTML(curEdits)],{type:'text/html;charset=utf-8'}),fname);
+  toast('Descargado: '+fname);
+}
+
+async function downloadAllZip(){
+  if(!procs.length){alert('Primero carga el Excel.');return}
+  if(curProc){syncEdits();allEdits[curProc._code]={...curEdits}}
+  await runZip(procs,'fichas_sede_electronica.zip');
+}
+
+async function downloadSelZip(){
+  if(!selectedCodes.size){alert('No hay procedimientos seleccionados.');return}
+  if(curProc){syncEdits();allEdits[curProc._code]={...curEdits}}
+  await runZip(procs.filter(p=>selectedCodes.has(p._code)),'fichas_seleccion.zip');
+}
+
+async function runZip(list,fname){
+  const btn=document.getElementById('btnall'),bs=document.getElementById('btnsel');
+  const btnFull=document.getElementById('btnfull');
+  const pw=document.getElementById('pgwrap'),fill=document.getElementById('pgfill');
+  const ptxt=document.getElementById('pgtxt'),ppct=document.getElementById('pgpct');
+  btn.disabled=true;if(bs)bs.disabled=true;if(btnFull)btnFull.disabled=true;
+  pw.classList.add('on');fill.style.width='0%';
+  try{
+    const zip=new JSZip(),n=list.length;
+    for(let i=0;i<n;i++){
+      const p=list[i];
+      zip.file(p._code.toLowerCase()+'.html',generateHTML(buildEdits(p)));
+      const pct=Math.round(((i+1)/n)*100);
+      fill.style.width=pct+'%';ptxt.textContent='Generando '+p._code+'…';ppct.textContent=pct+'%';
+      if(i%30===0)await yld();
+    }
+    ptxt.textContent='Comprimiendo ZIP…';ppct.textContent='';
+    const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
+    blobDl(blob,fname);
+    toast('✅ ZIP descargado — '+list.length+' ficheros');
+  }catch(err){alert('Error: '+err.message);console.error(err)}
+  finally{btn.disabled=false;if(bs)bs.disabled=false;if(btnFull)btnFull.disabled=false;pw.classList.remove('on');fill.style.width='0%'}
+}
+
+function copyHTML(){
+  if(!curProc)return;syncEdits();
+  const h=generateHTML(curEdits);
+  if(navigator.clipboard)navigator.clipboard.writeText(h).then(()=>toast('HTML copiado al portapapeles'));
+  else{const ta=document.createElement('textarea');ta.value=h;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('HTML copiado')}
+}
+
+// ══════════════════════════════════════════════════════════════════
+// BLOCK PREVIEW MODAL
+// ══════════════════════════════════════════════════════════════════
+let _bpHtml='';
+function openBpModal(edId){
+  syncEdits();
+  const el=document.getElementById(edId);if(!el)return;
+  const secIdx=parseInt(edId.replace('sec-',''),10);
+  const cfg=activeCfg||DEFAULT_CONFIG;
+  const sec=(cfg.blocks||[])[secIdx];if(!sec)return;
+  const key=sec.key, rawHtml=(curEdits[key]||'').trim();
+  const code=curProc?curProc._code:'';const n=secIdx+1;
+  document.getElementById('bp-section-lbl').textContent=sec.label;
+  document.getElementById('bp-title').textContent='Vista previa — '+sec.label;
+  document.getElementById('bp-code').textContent=code;
+  document.getElementById('bp-fname').textContent=(code?code.toLowerCase()+'-':'')+'bloque-'+n+'.html';
+  const contentEl=document.getElementById('bp-content-area');
+  contentEl.innerHTML=rawHtml?'<div class="bp-acc-body">'+encodeHtml(rawHtml)+'</div>':'<div class="bp-empty">Este bloque no tiene contenido todavía.</div>';
+  const encodedBody=rawHtml?encodeHtml(rawHtml):'<!-- Contenido pendiente de completar -->';
+  const blockTpl=(cfg.tplBlock||DEFAULT_TPL_BLOCK);
+  _bpHtml=blockTpl.replace(/\{\{BLOCK_ID\}\}/g,String(n)).replace(/\{\{BLOCK_LABEL\}\}/g,encodeText(sec.label)).replace(/\{\{BLOCK_CONTENT\}\}/g,encodedBody).replace(/\{\{FIRST_CLASS\}\}/g,'').replace(/\{\{FIRST_ARIA\}\}/g,'true').replace(/\{\{FIRST_SHOW\}\}/g,' show');
+  document.getElementById('bp-html-out').textContent=_bpHtml;
+  switchBpTab('render');
+  document.getElementById('bp-overlay').classList.add('on');
+}
+function copyBlockHTML(){
+  if(!_bpHtml)return;
+  const btn=document.getElementById('bp-copy-btn');
+  if(navigator.clipboard)navigator.clipboard.writeText(_bpHtml).then(()=>{btn.textContent='✅ Copiado';setTimeout(()=>{btn.innerHTML='<svg viewBox="0 0 24 24" style="width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copiar HTML'},1800)});
+}
+function closeBpModal(e){
+  if(e&&e.target!==document.getElementById('bp-overlay'))return;
+  document.getElementById('bp-overlay').classList.remove('on');
+  // Reset iframe to blank to avoid showing stale content on next open
+  const iframe=document.getElementById('bp-iframe');
+  if(iframe)iframe.srcdoc='';
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&document.getElementById('bp-overlay').classList.contains('on')){
+    document.getElementById('bp-overlay').classList.remove('on');
+    const iframe=document.getElementById('bp-iframe');
+    if(iframe)iframe.srcdoc='';
+  }
+},true);
+
+// ══════════════════════════════════════════════════════════════════
+// LINK MODAL
+// ══════════════════════════════════════════════════════════════════
+let _linkEdId=null,_linkRange=null;
+function openLinkModal(edId){
+  const el=document.getElementById(edId);if(!el)return;
+  const sel=window.getSelection();_linkEdId=edId;_linkRange=(sel&&sel.rangeCount>0)?sel.getRangeAt(0).cloneRange():null;
+  const selText=_linkRange?_linkRange.toString().trim():'';
+  document.getElementById('link-url').value='';document.getElementById('link-text').value=selText;updateLinkPreview();
+  document.getElementById('link-overlay').classList.add('on');
+  setTimeout(()=>document.getElementById('link-url').focus(),60);
+}
+function closeLinkModal(e){if(e&&e.target!==document.getElementById('link-overlay'))return;document.getElementById('link-overlay').classList.remove('on');_linkRange=null;_linkEdId=null}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeLinkModal()});
+function updateLinkPreview(){
+  const url=document.getElementById('link-url').value.trim(),text=document.getElementById('link-text').value.trim(),prev=document.getElementById('link-preview'),btn=document.getElementById('link-confirm');
+  if(url){prev.innerHTML='<a href="'+escAttr(url)+'" target="_blank" rel="noopener noreferrer">'+escHtmlText(text||url)+'</a>';btn.disabled=false}
+  else{prev.textContent='El enlace aparecerá aquí…';btn.disabled=true}
+}
+function confirmLink(){
+  const url=document.getElementById('link-url').value.trim(),text=document.getElementById('link-text').value.trim();
+  if(!url||!_linkEdId)return;
+  const el=document.getElementById(_linkEdId);if(!el)return;el.focus();
+  if(_linkRange){const sel=window.getSelection();sel.removeAllRanges();sel.addRange(_linkRange)}
+  const sel=window.getSelection(),selText=(sel&&sel.rangeCount>0)?sel.getRangeAt(0).toString().trim():'';
+  const label=text||selText||url;
+  const anchor='<a href="'+escAttr(url)+'" target="_blank" rel="noopener noreferrer">'+escHtmlText(label)+'</a>';
+  if(sel&&sel.rangeCount>0&&!sel.isCollapsed){
+    const range=sel.getRangeAt(0);range.deleteContents();
+    const frag=range.createContextualFragment(anchor);
+    range.insertNode(frag);range.collapse(false);
+    sel.removeAllRanges();sel.addRange(range);
+  } else {
+    // Modern fallback: insert at cursor using Range API instead of deprecated execCommand
+    const range = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    if (range) {
+      const frag = range.createContextualFragment(anchor);
+      range.insertNode(frag);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  }
+  onEdit(el);closeLinkModal();toast('Enlace insertado');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CONFIGURATOR
+// ══════════════════════════════════════════════════════════════════
+let wizStep=0, wizDraft={}, wizExcelCols=[], wizEditingId=null;
+
+function editCfg(id){
+  const cfg=allConfigs().find(c=>c.id===id);
+  if(!cfg)return;
+  wizEditingId=id;
+  wizDraft={...cfg,blocks:[...(cfg.blocks||[]).map(b=>({...b}))],refCols:[...(cfg.refCols||[])]};
+
+  // Fix 1+3: reconstruct known columns from the existing config so the wizard
+  // works without needing to reload an Excel file.
+  // Merge: refCols + block keys + titleCol — deduplicated, order preserved.
+  const knownCols=[
+    ...(cfg.refCols||[]),
+    ...(cfg.blocks||[]).map(b=>b.key),
+    ...(cfg.titleCol?[cfg.titleCol]:[]),
+  ];
+  wizExcelCols=[...new Set(knownCols)].filter(Boolean);
+
+  // Pre-fill step 0
+  document.getElementById('wiz-client-name').value=cfg.name||'';
+  document.getElementById('wiz-client-desc').value=cfg.desc||'';
+  document.getElementById('wiz-code-col').value=cfg.codeCol||'Abreviatura';
+  document.getElementById('wiz-code-pattern').value=cfg.codePattern||'^[A-Za-z]{3}$';
+  // Pre-fill template
+  document.getElementById('wiz-tpl-head').value=cfg.tplHead||DEFAULT_TPL_HEAD;
+  document.getElementById('wiz-tpl-block').value=cfg.tplBlock||DEFAULT_TPL_BLOCK;
+  document.getElementById('wiz-tpl-foot').value=cfg.tplFoot||DEFAULT_TPL_FOOT;
+  // Pre-fill blocks list
+  refreshBlockList();
+
+  // Populate column dropdowns and ref-col checkboxes with known cols
+  renderWizRefCols();
+  renderWizBlockCols();
+  renderWizTitleCol();
+
+  // Fix 3: enable Next button on step 1 since we already have column data
+  const nextBtn=document.getElementById('wiz-next-1');
+  if(nextBtn)nextBtn.disabled=false;
+
+  // Show info banner instead of upload zone when editing (cols already known)
+  show('wiz-cols-section');
+  const alertEl=document.getElementById('wiz-excel-alert');
+  if(alertEl){
+    showAlert('wiz-excel-alert','ok',
+      'Columnas reconstruidas desde la configuración existente ('+wizExcelCols.length+' columnas). Puedes cargar un Excel nuevo para actualizar la lista.');
+    alertEl.classList.remove('hidden');
+  }
+
+  openWizard('Editando: '+cfg.name);
+  goWizScreen(0);
+}
+
+function renderCfgList(){
+  const cfgs=allConfigs();
+  const activeId=(activeCfg&&activeCfg.id)||DEFAULT_CONFIG.id;
+  const cards=cfgs.map(cfg=>{
+    const isActive=cfg.id===activeId;
+    const isDef=cfg.id===DEFAULT_CONFIG.id;
+    return `<div class="cfg-card${isActive?' is-active':''}">
+      <div class="cc-icon"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+      <h3>${escHtmlText(cfg.name)}</h3>
+      <div class="cc-desc">${escHtmlText(cfg.desc||'')}</div>
+      <div class="cc-meta">${(cfg.blocks||[]).length} bloques &middot; Col: ${escHtmlText(cfg.codeCol||'')}</div>
+      <div class="cc-actions">
+        ${!isActive?`<button class="btn btn-p" onclick="activateCfgById('${cfg.id}')">Activar</button>`
+                   :`<button class="btn btn-teal" disabled style="opacity:.7;cursor:default">&#10003; Activa</button>`}
+        <button class="btn btn-o" onclick="editCfg('${cfg.id}')">
+          <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Editar
+        </button>
+        <button class="btn btn-o" onclick="duplicateCfg('${cfg.id}')" title="Crear una copia de esta configuración">
+          <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Duplicar
+        </button>
+        ${!isDef?`<button class="btn btn-danger" onclick="deleteCfg('${cfg.id}')">Eliminar</button>`:''}
+        <button class="btn btn-o" onclick="exportCfgById('${cfg.id}')">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          .json
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('cfg-cards').innerHTML=cards+`
+    <div class="cfg-card cfg-card-new" onclick="startNewCfg()">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <h3>Nueva configuraci&oacute;n</h3>
+      <p>Crear para un nuevo cliente paso a paso</p>
+    </div>`;
+}
+
+function activateCfgById(id){
+  const cfg=allConfigs().find(c=>c.id===id);
+  if(!cfg)return;
+  // Fix 11: warn if generator has loaded data that will be lost
+  if(procs.length>0 && activeCfg && activeCfg.id!==id){
+    const edited=Object.keys(allEdits).length;
+    const msg=edited>0
+      ? `Cambiar de configuración borrará los ${procs.length} procedimientos cargados y las ${edited} fichas editadas en esta sesión.\n\n¿Continuar?`
+      : `Cambiar de configuración borrará los ${procs.length} procedimientos cargados.\n\n¿Continuar?`;
+    if(!confirm(msg))return;
+    // Reset generator state
+    procs=[];curProc=null;curEdits={};allEdits={};selectedCodes=new Set();
+    hide('statsec');hide('listsec');hide('proc-detail');show('empty');
+    document.getElementById('hcount').textContent='Sin datos cargados';
+  }
+  applyConfig(cfg);renderCfgList();
+}
+
+function deleteCfg(id){
+  if(!confirm('¿Eliminar esta configuración de la sesión actual?'))return;
+  deleteConfig(id);renderCfgList();toast('Configuración eliminada');
+}
+
+function exportCfgById(id){
+  const cfg=allConfigs().find(c=>c.id===id);
+  if(!cfg)return;
+  const blob=new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'});
+  blobDl(blob,'config_'+cfg.id+'.json');
+  toast('Exportado: config_'+cfg.id+'.json');
+}
+
+function startNewCfg(){
+  wizEditingId=null;
+  wizDraft={codeCol:'Abreviatura',codePattern:'^[A-Za-z]{3}$',blocks:[],refCols:[],tplHead:DEFAULT_TPL_HEAD,tplBlock:DEFAULT_TPL_BLOCK,tplFoot:DEFAULT_TPL_FOOT};
+  wizExcelCols=[];
+  document.getElementById('wiz-client-name').value='';
+  document.getElementById('wiz-client-desc').value='';
+  document.getElementById('wiz-code-col').value='Abreviatura';
+  document.getElementById('wiz-code-pattern').value='^[A-Za-z]{3}$';
+  document.getElementById('wiz-block-list').innerHTML='';
+  document.getElementById('wiz-tpl-head').value=DEFAULT_TPL_HEAD;
+  document.getElementById('wiz-tpl-block').value=DEFAULT_TPL_BLOCK;
+  document.getElementById('wiz-tpl-foot').value=DEFAULT_TPL_FOOT;
+  openWizard('Nueva configuraci\u00f3n');
+  goWizScreen(0);
+}
+
+function openWizard(title){
+  document.getElementById('wiz-title').textContent=title;
+  const lbl=document.getElementById('wiz-save-label');
+  if(lbl)lbl.textContent=wizEditingId?'Guardar cambios':'Activar y usar esta configuración';
+  hide('cfg-list');show('cfg-wizard-wrap');
+}
+
+function showCfgList(){
+  show('cfg-list');hide('cfg-wizard-wrap');
+  renderCfgList();
+}
+
+function goWizScreen(n){
+  wizStep=n;
+  for(let i=0;i<5;i++){
+    const s=document.getElementById('wscreen-'+i);
+    if(s)s.classList.toggle('on',i===n);
+    if(s&&i!==n)s.classList.add('hidden');
+    if(s&&i===n)s.classList.remove('hidden');
+    const ws=document.getElementById('ws-'+i);
+    if(ws){ws.classList.toggle('active',i===n);ws.classList.toggle('done',i<n)}
+  }
+  if(n===4)buildWizSummary();
+}
+
+function wizNext(from){
+  if(from===0){
+    const name=document.getElementById('wiz-client-name').value.trim();
+    if(!name){
+      wizAlert('wiz-step0-alert','err','El nombre del cliente es obligatorio.');
+      return;
+    }
+    wizDraft.name=name;
+    wizDraft.desc=document.getElementById('wiz-client-desc').value.trim();
+    wizDraft.codeCol=document.getElementById('wiz-code-col').value.trim()||'Abreviatura';
+    wizDraft.codePattern=document.getElementById('wiz-code-pattern').value.trim()||'^[A-Za-z]{3}$';
+  }
+  if(from===1){
+    wizDraft.refCols=[];
+    document.querySelectorAll('#wiz-ref-cols .col-row input[type=checkbox]:checked').forEach(cb=>{wizDraft.refCols.push(cb.value)});
+  }
+  if(from===2){
+    if(!(wizDraft.blocks||[]).length){
+      wizAlert('wiz-blocks-alert','err','Añade al menos un bloque al acordeón antes de continuar.');
+      return;
+    }
+  }
+  if(from===3){
+    wizDraft.tplHead=document.getElementById('wiz-tpl-head').value;
+    wizDraft.tplBlock=document.getElementById('wiz-tpl-block').value;
+    wizDraft.tplFoot=document.getElementById('wiz-tpl-foot').value;
+    const tc=document.getElementById('wiz-title-col');wizDraft.titleCol=tc?tc.value:'';
+    if(!wizDraft.tplBlock){
+      wizAlert('wiz-step3-alert','err','La plantilla del bloque no puede estar vacía.');
+      return;
+    }
+  }
+  goWizScreen(from+1);
+}
+
+// Excel upload in wizard
+document.getElementById('wiz-upzone').addEventListener('dragover',e=>{e.preventDefault();document.getElementById('wiz-upzone').classList.add('drag')});
+document.getElementById('wiz-upzone').addEventListener('dragleave',()=>document.getElementById('wiz-upzone').classList.remove('drag'));
+document.getElementById('wiz-upzone').addEventListener('drop',e=>{e.preventDefault();document.getElementById('wiz-upzone').classList.remove('drag');if(e.dataTransfer.files[0])onWizExcel({target:{files:e.dataTransfer.files}})});
+
+function onWizExcel(evt){
+  const file=evt.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{defval:'',header:1});
+      if(!rows.length)throw new Error('Excel vacío');
+      wizExcelCols=rows[0].map(c=>String(c).trim()).filter(Boolean);
+      showAlert('wiz-excel-alert','ok','Detectadas '+wizExcelCols.length+' columnas en el Excel.');
+      renderWizRefCols();
+      renderWizBlockCols();
+      renderWizTitleCol();
+      show('wiz-cols-section');
+      document.getElementById('wiz-next-1').disabled=false;
+    }catch(err){showAlert('wiz-excel-alert','err','Error: '+err.message)}
+  };
+  r.readAsArrayBuffer(file);
+}
+
+function renderWizRefCols(){
+  const existing=wizDraft.refCols||[];
+  document.getElementById('wiz-ref-cols').innerHTML=wizExcelCols.map(col=>{
+    const checked=existing.includes(col)?'checked':'';
+    return `<div class="col-row${checked?' visible':''}">
+      <input type="checkbox" class="col-chk" value="${escAttr(col)}" ${checked} onchange="this.closest('.col-row').classList.toggle('visible',this.checked);updateWizColCounter()">
+      <span class="col-name">${escHtmlText(col)}</span>
+    </div>`;
+  }).join('');
+  updateWizColCounter();
+}
+
+function renderWizBlockCols(){
+  const sel=document.getElementById('wiz-add-col');
+  sel.innerHTML='<option value="">— Seleccionar columna —</option>'+wizExcelCols.map(c=>`<option value="${escAttr(c)}">${escHtmlText(c)}</option>`).join('');
+}
+
+function renderWizTitleCol(){
+  const sel=document.getElementById('wiz-title-col');
+  if(!sel)return;
+  sel.innerHTML=wizExcelCols.map(c=>`<option value="${escAttr(c)}">${escHtmlText(c)}</option>`).join('');
+  if(wizDraft.titleCol)sel.value=wizDraft.titleCol;
+}
+
+function renderWizBlocks(blocks){
+  document.getElementById('wiz-block-list').innerHTML=(blocks||[]).map((b,i)=>blockRowHtml(b,i)).join('');
+  wizDraft.blocks=[...(blocks||[])];
+  initBlockDrag();
+}
+
+function blockRowHtml(b,i){
+  return `<div class="block-row" draggable="true" data-idx="${i}">
+    <div class="drag-handle-icon"><span></span><span></span><span></span></div>
+    <span class="brow-num">${String(i+1).padStart(2,'0')}</span>
+    <span class="brow-name">${escHtmlText(b.label)}</span>
+    <span class="brow-col">${escHtmlText(b.key)}</span>
+    <button class="brow-del" onclick="removeBlock(this)"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
+  </div>`;
+}
+
+function addBlock(){
+  const col=document.getElementById('wiz-add-col').value;
+  const lbl=document.getElementById('wiz-add-label').value.trim()||col;
+  if(!col){wizAlert('wiz-blocks-alert','err','Selecciona una columna del Excel antes de añadir.');return}
+  if(!lbl){wizAlert('wiz-blocks-alert','err','Escribe un nombre (etiqueta) para el bloque.');return}
+  wizDraft.blocks=wizDraft.blocks||[];
+  wizDraft.blocks.push({key:col,label:lbl});
+  refreshBlockList();
+  document.getElementById('wiz-add-col').value='';
+  document.getElementById('wiz-add-label').value='';
+}
+
+function removeBlock(btn) {
+  // Read current DOM position to avoid stale index after drag-reorder
+  const row = btn.closest('.block-row');
+  const rows = [...document.querySelectorAll('#wiz-block-list .block-row')];
+  const i = rows.indexOf(row);
+  if (i < 0) return;
+  wizDraft.blocks.splice(i, 1);
+  refreshBlockList();
+}
+
+function refreshBlockList(){
+  document.getElementById('wiz-block-list').innerHTML=(wizDraft.blocks||[]).map((b,i)=>blockRowHtml(b,i)).join('');
+  initBlockDrag();
+}
+
+function initBlockDrag(){
+  let dragging=null;
+  document.querySelectorAll('#wiz-block-list .block-row').forEach(row=>{
+    row.addEventListener('dragstart',()=>{dragging=row;row.classList.add('dragging')});
+    row.addEventListener('dragend',()=>{row.classList.remove('dragging');dragging=null;syncBlockOrder()});
+    row.addEventListener('dragover',e=>{e.preventDefault();if(dragging&&dragging!==row){const list=document.getElementById('wiz-block-list');const rows=[...list.querySelectorAll('.block-row')];const idx=rows.indexOf(row);const dIdx=rows.indexOf(dragging);list.insertBefore(dragging,dIdx<idx?row.nextSibling:row)}});
+  });
+}
+
+function syncBlockOrder(){
+  // Fix 2: read current DOM order directly, not data-idx (which is stale after drag)
+  const rows=[...document.querySelectorAll('#wiz-block-list .block-row')];
+  const nameEls=rows.map(r=>({
+    label: r.querySelector('.brow-name')?.textContent||'',
+    key:   r.querySelector('.brow-col')?.textContent||'',
+  }));
+  wizDraft.blocks=nameEls;
+  refreshBlockList();
+}
+
+function loadDefaultTemplate(){
+  document.getElementById('wiz-tpl-head').value=DEFAULT_TPL_HEAD;
+  document.getElementById('wiz-tpl-block').value=DEFAULT_TPL_BLOCK;
+  document.getElementById('wiz-tpl-foot').value=DEFAULT_TPL_FOOT;
+  wizDraft.tplHead=DEFAULT_TPL_HEAD;wizDraft.tplBlock=DEFAULT_TPL_BLOCK;wizDraft.tplFoot=DEFAULT_TPL_FOOT;
+  toast('Plantilla por defecto (MAU) cargada');
+}
+
+function buildWizSummary(){
+  const d=wizDraft;
+  document.getElementById('export-name-hint').textContent=(d.name||'cliente').toLowerCase().replace(/\s+/g,'-');
+  document.getElementById('wiz-summary').innerHTML=`
+    <table style="width:100%;font-size:12.5px;border-collapse:collapse">
+      <tr><td style="padding:5px 0;color:var(--muted);width:40%">Cliente</td><td style="font-weight:600">${escHtmlText(d.name||'—')}</td></tr>
+      <tr><td style="padding:5px 0;color:var(--muted)">Descripción</td><td>${escHtmlText(d.desc||'—')}</td></tr>
+      <tr><td style="padding:5px 0;color:var(--muted)">Columna código</td><td><code>${escHtmlText(d.codeCol||'')}</code></td></tr>
+      <tr><td style="padding:5px 0;color:var(--muted)">Patrón código</td><td><code>${escHtmlText(d.codePattern||'')}</code></td></tr>
+      <tr><td style="padding:5px 0;color:var(--muted)">Columna título</td><td><code>${escHtmlText(d.titleCol||'—')}</code></td></tr>
+      <tr><td style="padding:5px 0;color:var(--muted)">Cols. referencia</td><td>${(d.refCols||[]).map(c=>'<code>'+escHtmlText(c)+'</code>').join(', ')||'—'}</td></tr>
+      <tr><td style="padding:5px 0;color:var(--muted)">Bloques del acordeón</td><td><strong>${(d.blocks||[]).length}</strong>: ${(d.blocks||[]).map(b=>escHtmlText(b.label)).join(', ')}</td></tr>
+      <tr><td style="padding:5px 0;color:var(--muted)">Plantilla HTML</td><td>${d.tplHead?'<span class="fbadge ok">Definida</span>':'<span class="fbadge err">Vacía</span>'}</td></tr>
+    </table>`;
+}
+
+function exportCfgJson(){
+  const d=wizDraft;
+  if(!d.name){wizAlert('wiz-step0-alert','err','Completa el nombre del cliente en el paso 1 antes de exportar.');goWizScreen(0);return}
+  const id=wizEditingId||(d.name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'')+'-'+Date.now());
+  const cfg={...d,id,createdAt:d.createdAt||new Date().toISOString().slice(0,10)};
+  const blob=new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'});
+  blobDl(blob,'config_'+id+'.json');
+  toast('JSON exportado');
+}
+
+function activateConfig(){
+  const d=wizDraft;
+  if(!d.name){wizAlert('wiz-step0-alert','err','Completa el nombre del cliente en el paso 1.');goWizScreen(0);return}
+  if(!(d.blocks||[]).length){wizAlert('wiz-blocks-alert','err','Añade al menos un bloque en el paso 3.');goWizScreen(2);return}
+  const id=wizEditingId||(d.name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'')+'-'+Date.now());
+  const cfg={...d,id,createdAt:d.createdAt||new Date().toISOString().slice(0,10)};
+  saveConfig(cfg);applyConfig(cfg);
+  wizEditingId=null;
+  showCfgList();setMode('gen');
+}
+
+function importCfgFile(){document.getElementById('cfg-import-input').click()}
+function onImportCfgFile(evt){
+  const file=evt.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const cfg=JSON.parse(e.target.result);
+      // Validate required fields
+      if(!cfg.name)          throw new Error('Falta el campo "name" (nombre del cliente).');
+      if(!Array.isArray(cfg.blocks)||!cfg.blocks.length)
+                             throw new Error('Falta el campo "blocks" o está vacío.');
+      if(!cfg.codeCol)       throw new Error('Falta el campo "codeCol" (columna del código).');
+      // Apply safe defaults for optional fields
+      cfg.id       = cfg.id       || ('imported-'+Date.now());
+      cfg.refCols  = Array.isArray(cfg.refCols)  ? cfg.refCols  : [];
+      cfg.titleCol = cfg.titleCol || '';
+      cfg.tplHead  = cfg.tplHead  || DEFAULT_TPL_HEAD;
+      cfg.tplBlock = cfg.tplBlock || DEFAULT_TPL_BLOCK;
+      cfg.tplFoot  = cfg.tplFoot  || DEFAULT_TPL_FOOT;
+      cfg.codePattern = cfg.codePattern || '^[A-Za-z]{3}$';
+      saveConfig(cfg);renderCfgList();
+      toast('Configuración importada: '+cfg.name);
+    }catch(err){alert('Error al importar: '+err.message)}
+  };
+  r.readAsText(file);
+  evt.target.value='';
+}
+
+function showAlert(containerId,type,msg){
+  const el=document.getElementById(containerId);if(!el)return;
+  const icons={ok:'<polyline points="20 6 9 17 4 12"/>',warn:'<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',err:'<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'};
+  el.className='alert alert-'+type;
+  el.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icons[type]||icons.ok}</svg><span>${escHtmlText(msg)}</span>`;
+  el.classList.remove('hidden');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// M7 — INLINE VALIDATION (replace alert() in wizard)
+// ══════════════════════════════════════════════════════════════════
+function wizAlert(containerId, type, msg) {
+  // type: 'ok' | 'warn' | 'err'
+  const icons = {
+    ok:   '<polyline points="20 6 9 17 4 12"/>',
+    warn: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+    err:  '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
+  };
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.className = 'alert alert-' + type;
+  el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icons[type]||icons.ok}</svg><span>${escHtmlText(msg)}</span>`;
+  el.classList.remove('hidden');
+  el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  // Auto-hide ok messages after 4s
+  if (type === 'ok') setTimeout(() => el.classList.add('hidden'), 4000);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// M10 — COLUMN SEARCH FILTER in wizard step 1
+// ══════════════════════════════════════════════════════════════════
+function filterWizCols(q) {
+  const f = (q || '').toLowerCase();
+  let visible = 0;
+  document.querySelectorAll('#wiz-ref-cols .col-row').forEach(row => {
+    const name = row.querySelector('.col-name')?.textContent || '';
+    const show = !f || name.toLowerCase().includes(f);
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  updateWizColCounter();
+}
+
+function updateWizColCounter() {
+  const counter = document.getElementById('wiz-col-counter');
+  if (!counter) return;
+  const total    = document.querySelectorAll('#wiz-ref-cols .col-row').length;
+  const selected = document.querySelectorAll('#wiz-ref-cols .col-row input:checked').length;
+  const visible  = [...document.querySelectorAll('#wiz-ref-cols .col-row')]
+                     .filter(r => r.style.display !== 'none').length;
+  const filterActive = visible < total;
+  counter.textContent = selected + ' seleccionadas' + (filterActive ? ' · ' + visible + '/' + total + ' visibles' : '');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// M13 — PERSIST TEMPLATE FIELDS on wizBack (don't lose on back)
+// ══════════════════════════════════════════════════════════════════
+function wizBack(from) {
+  if (from <= 0) return; // guard: cannot go before step 0
+  // Save template fields whenever leaving step 3, even going backwards
+  if (from === 3) {
+    wizDraft.tplHead  = document.getElementById('wiz-tpl-head').value;
+    wizDraft.tplBlock = document.getElementById('wiz-tpl-block').value;
+    wizDraft.tplFoot  = document.getElementById('wiz-tpl-foot').value;
+    const tc = document.getElementById('wiz-title-col');
+    if (tc) wizDraft.titleCol = tc.value;
+  }
+  // Save step 0 fields too (name, codeCol, etc.) for safety
+  if (from === 0) {
+    wizDraft.name        = document.getElementById('wiz-client-name').value.trim();
+    wizDraft.desc        = document.getElementById('wiz-client-desc').value.trim();
+    wizDraft.codeCol     = document.getElementById('wiz-code-col').value.trim() || 'Abreviatura';
+    wizDraft.codePattern = document.getElementById('wiz-code-pattern').value.trim() || '^[A-Za-z]{3}$';
+  }
+  goWizScreen(from - 1);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// M14 — DUPLICATE CONFIG
+// ══════════════════════════════════════════════════════════════════
+function duplicateCfg(id) {
+  const src = allConfigs().find(c => c.id === id);
+  if (!src) return;
+  const newId = src.id + '-copy-' + Date.now();
+  const copy  = {
+    ...src,
+    blocks:  (src.blocks  || []).map(b => ({ ...b })),
+    refCols: [...(src.refCols || [])],
+    id:      newId,
+    name:    'Copia de ' + src.name,
+    createdAt: new Date().toISOString().slice(0, 10),
+  };
+  saveConfig(copy);
+  renderCfgList();
+  toast('Configuración duplicada: ' + copy.name);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// M12 — REAL IFRAME PREVIEW in switchBpTab
+// ══════════════════════════════════════════════════════════════════
+function switchBpTab(name) {
+  ['render','code','iframe'].forEach(t => {
+    document.getElementById('bptab-'   + t)?.classList.toggle('on',     t === name);
+    document.getElementById('bppanel-' + t)?.classList.toggle('hidden',  t !== name);
+  });
+
+  if (name === 'iframe') {
+    const iframe = document.getElementById('bp-iframe');
+    if (!iframe) return;
+    // Build a minimal but complete HTML page using the full config template
+    const cfg   = activeCfg || DEFAULT_CONFIG;
+    const head  = (cfg.tplHead  || DEFAULT_TPL_HEAD).replace(/\{\{TITLE\}\}/g, 'Vista previa').replace(/\{\{CODE\}\}/g, '');
+    const foot  = (cfg.tplFoot  || DEFAULT_TPL_FOOT).replace(/\{\{TITLE\}\}/g, 'Vista previa').replace(/\{\{CODE\}\}/g, '');
+    // Use the already-generated _bpHtml snippet (single block)
+    const fullHtml = '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' + head + '</head><body>' + _bpHtml + foot + '</body></html>';
+    iframe.srcdoc = fullHtml;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// B9 — CHARACTER COUNTER per block field
+// ══════════════════════════════════════════════════════════════════
+function updateCharCount(el) {
+  const countEl = document.getElementById('cc-' + el.id);
+  if (!countEl) return;
+  const chars = textContent(el.innerHTML || '').length;
+  countEl.textContent = chars + ' caracteres';
+  // Check higher threshold first to avoid short-circuit bug
+  countEl.className = 'char-count' + (chars > 4000 ? ' char-err' : chars > 2000 ? ' char-warn' : '');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// B-EXTRA — FULL BUNDLE: all HTMLs + config.json in one ZIP
+// ══════════════════════════════════════════════════════════════════
+async function downloadFullBundle() {
+  if (!procs.length) {
+    toast('⚠ Primero carga el Excel de procedimientos.');
+    return;
+  }
+  if (curProc) { syncEdits(); allEdits[curProc._code] = { ...curEdits }; }
+
+  const btn  = document.getElementById('btnfull');
+  const pw   = document.getElementById('pgwrap');
+  const fill = document.getElementById('pgfill');
+  const ptxt = document.getElementById('pgtxt');
+  const ppct = document.getElementById('pgpct');
+
+  btn.disabled = true; pw.classList.add('on'); fill.style.width = '0%';
+
+  try {
+    const zip = new JSZip();
+    const n   = procs.length;
+
+    // Add all HTML files
+    for (let i = 0; i < n; i++) {
+      const p = procs[i];
+      zip.file('fichas/' + p._code.toLowerCase() + '.html', generateHTML(buildEdits(p)));
+      const pct = Math.round(((i + 1) / n) * 85); // reserve 15% for config + compress
+      fill.style.width = pct + '%';
+      ptxt.textContent = 'Generando ' + p._code + '…';
+      ppct.textContent = pct + '%';
+      if (i % 30 === 0) await yld();
+    }
+
+    // Add config JSON
+    ptxt.textContent = 'Añadiendo configuración…'; fill.style.width = '90%';
+    const cfg = activeCfg || DEFAULT_CONFIG;
+    zip.file('config_' + cfg.id + '.json', JSON.stringify(cfg, null, 2));
+
+    // Add a README
+    zip.file('LEEME.txt',
+      'PAQUETE COMPLETO — Generador de Fichas Guadaltel\n' +
+      '=================================================\n\n' +
+      'Cliente: ' + cfg.name + '\n' +
+      'Generado: ' + new Date().toLocaleString('es-ES') + '\n' +
+      'Procedimientos: ' + n + '\n\n' +
+      'Contenido:\n' +
+      '  fichas/          → ' + n + ' ficheros HTML listos para la sede\n' +
+      '  config_*.json    → configuración del cliente para reimportar\n' +
+      '  LEEME.txt        → este fichero\n'
+    );
+
+    ptxt.textContent = 'Comprimiendo…'; fill.style.width = '95%'; ppct.textContent = '';
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+    blobDl(blob, 'paquete_' + cfg.id + '_' + new Date().toISOString().slice(0,10) + '.zip');
+    toast('✅ Paquete completo descargado — ' + n + ' fichas + config.json');
+
+  } catch (err) {
+    alert('Error al generar el paquete: ' + err.message);
+    console.error(err);
+  } finally {
+    btn.disabled = false; pw.classList.remove('on'); fill.style.width = '0%';
+  }
+}
+
+
+function toggleSidebar(){
+  const left=document.querySelector('.left'),overlay=document.getElementById('sidebar-overlay'),btn=document.getElementById('hd-menu-btn');
+  const isOpen=left.classList.contains('open');
+  left.classList.toggle('open',!isOpen);overlay.classList.toggle('on',!isOpen);
+  btn.setAttribute('aria-expanded',String(!isOpen));
+  btn.querySelector('svg').innerHTML=!isOpen?'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>':'<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>';
+}
+
+// ══════════════════════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════════════════════
+function syncEdits(){document.querySelectorAll('.rtedit[data-keyb64]').forEach(el=>{curEdits[b64key(el)]=el.innerHTML})}
+function escHtmlText(s){
+  if(!s)return '';
+  // Escapes &, <, >, " and ' — safe for both text content and attribute values
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function escAttr(s){if(!s)return '';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+function textContent(html){return html.replace(/<[^>]*>/g,'')}
+function blobDl(blob,fname){const url=URL.createObjectURL(blob);const a=Object.assign(document.createElement('a'),{href:url,download:fname});document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),1000)}
+function yld(){return new Promise(r=>setTimeout(r,0))}
+function show(id){const el=document.getElementById(id);if(el)el.classList.remove('hidden')}
+function hide(id){const el=document.getElementById(id);if(el)el.classList.add('hidden')}
+let ttimer;
+function toast(msg){const t=document.getElementById('toast');document.getElementById('tmsg').textContent=msg;t.classList.add('on');clearTimeout(ttimer);ttimer=setTimeout(()=>t.classList.remove('on'),3400)}
+
+// ══════════════════════════════════════════════════════════════════
+// INIT — siempre arranca con la configuración MAU por defecto
+// Las configuraciones no persisten entre sesiones:
+// usa "Exportar .json" para guardarlas y "Importar fichero .json" para recargarlas.
+// ══════════════════════════════════════════════════════════════════
+loadActiveConfig();   // sets activeCfg = DEFAULT_CONFIG
+applyConfig(DEFAULT_CONFIG);
+renderCfgList();
+
+</script>
+</body>
+</html>
